@@ -32,7 +32,7 @@
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
     
     <!-- Logo do App -->
-    <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4">
+    <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
     
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
     <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
@@ -57,6 +57,34 @@
     </div>
     
     <div id="statusMsg" class="text-xs font-medium text-gray-500 mt-4 h-4"></div>
+
+    <!-- RODAPÉ - MILLENA FRANCO -->
+    <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
+      <p class="text-xs text-gray-500">
+        Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
+      </p>
+      
+      <!-- Badges Acadêmicos -->
+      <div class="flex flex-wrap justify-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+        <!-- Lattes -->
+        <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 transition-colors">
+          <svg class="h-4 w-4 text-[#1b365d]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5h-2v-9h2v9zm4 0h-2v-9h2v9z"/></svg>
+          CV Lattes
+        </a>
+        
+        <!-- ORCID -->
+        <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 transition-colors">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 text-[#A6CE39]" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zM7.37 8.16c1.07 0 1.83.74 1.83 1.8 0 1.13-.76 1.84-1.87 1.84h-1.6V8.16h1.64zM5.3 16.5H4.13V6.7H5.3v9.8zm2.14 0V13h2.15c2.31 0 3.75 1.54 3.75 3.5 0 2.06-1.52 3.5-3.8 3.5H7.44zm7.33-1.63c-.45.33-1.12.53-1.78.53-1.42 0-2.39-.93-2.39-2.38 0-1.42.94-2.37 2.37-2.37.66 0 1.33.2 1.77.53l.53-1.12c-.66-.45-1.54-.7-2.36-.7-2.14 0-3.66 1.53-3.66 3.66 0 2.15 1.55 3.67 3.7 3.67.8 0 1.66-.23 2.33-.67l-.5-1.15z"/></svg>
+          ORCID
+        </a>
+        
+        <!-- BV FAPESP -->
+        <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 transition-colors">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 text-[#44B2A8]" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.41 0 8 3.59 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+          BV FAPESP
+        </a>
+      </div>
+    </div>
   </div>
 
   <!-- WORKSPACE DE REVISÃO (Oculto inicialmente) -->

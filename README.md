@@ -15,6 +15,8 @@ Ferramentas tradicionais de leitura de PDF dificultam a numeração de linhas de
 ## 🚀 Como Usar
 Basta clonar o repositório e abrir o arquivo `index.html` em qualquer navegador moderno. Nenhuma instalação ou servidor local é necessário.
 
+mmillenaa.github.io/peer-reviewed-pdf/
+
 ---
 
 # Peer-Reviewed PDF App 📄
@@ -33,3 +35,5 @@ Traditional PDF readers make it incredibly difficult to add line numbers to fina
 
 ## 🚀 How to Use
 Simply clone the repository and open the `index.html` file in any modern web browser. No installation, dependencies, or local server required.
+
+mmillenaa.github.io/peer-reviewed-pdf/

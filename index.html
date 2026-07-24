@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Numerador Automático de PDF</title>
+  <!-- Tailwind CSS para design moderno -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PDF.js (Extração de texto e coordenadas) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- pdf-lib (Modificação e desenho no PDF) -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100">
+    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+      📄
+    </div>
+    
+    <h1 class="text-2xl font-bold text-gray-800 mb-1">Numerador de PDF</h1>
+    <p class="text-gray-500 text-sm mb-6">Adicione números de linha automaticamente ao seu PDF com alinhamento preciso.</p>
+
+    <!-- Área de Upload -->
+    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-500 transition-colors bg-gray-50/50">
+      <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
+      <label for="pdfInput" class="cursor-pointer flex flex-col items-center">
+        <svg class="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        <span class="text-gray-600 text-sm font-medium" id="fileName">Escolha ou arraste um PDF</span>
+      </label>
+    </div>
+
+    <!-- Botão de Ação -->
+    <button id="btnProcess" onclick="processPDF()" disabled class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg disabled:shadow-none mb-3">
+      Numerar linhas
+    </button>
+
+    <!-- Status -->
+    <div id="status" class="text-xs font-medium text-gray-500 min-h-[20px]"></div>
+  </div>
+
+  <script>
+    let fileBuffer = null;
+    let selectedFile = null;
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      selectedFile = file;
+      document.getElementById('fileName').innerText = file.name;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        fileBuffer = e.target.result;
+        document.getElementById('btnProcess').disabled = false;
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    async function processPDF() {
+      if (!fileBuffer) return;
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = "Lendo estrutura do PDF...";
+
+      try {
+        // Carrega via PDF.js para ler as coordenadas Y
+        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileBuffer) }).promise;
+        // Carrega via pdf-lib para desenhar
+        const pdfLibDoc = await PDFLib.PDFDocument.load(fileBuffer);
+        const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+        let lineNumber = 1;
+        const tolY = 4.0;
+        const margemX = 20;
+
+        for (let pageNum = 1; pageNum <= pdfjsDoc.numPages; pageNum++) {
+          statusEl.innerText = `Processando página ${pageNum} de ${pdfjsDoc.numPages}...`;
+          
+          const pdfjsPage = await pdfjsDoc.getPage(pageNum);
+          const pdfLibPage = pdfLibDoc.getPage(pageNum - 1);
+          const { height: pageHeight } = pdfLibPage.getSize();
+
+          const textContent = await pdfjsPage.getTextContent();
+          
+          // Limites em coordenadas PDF (Y=0 é a parte INFERIOR)
+          const limiteTopo = pageHeight - 50;
+          const limiteRodape = 45;
+
+          let yCoords = [];
+
+          for (const item of textContent.items) {
+            if (!item.str || item.str.trim() === '') continue;
+            // item.transform[5] guarda a linha de base Y exata da fonte
+            const yPos = item.transform[5];
+
+            if (yPos >= limiteRodape && yPos <= limiteTopo) {
+              yCoords.push(yPos);
+            }
+          }
+
+          if (yCoords.length === 0) continue;
+
+          // Ordena do topo para a base da página (Y decrescente)
+          yCoords.sort((a, b) => b - a);
+
+          // Agrupa linhas na mesma altura visual
+          let uniqueY = [];
+          for (const y of yCoords) {
+            if (uniqueY.length === 0) {
+              uniqueY.push(y);
+            } else {
+              const lastY = uniqueY[uniqueY.length - 1];
+              if (Math.abs(lastY - y) > tolY) {
+                uniqueY.push(y);
+              }
+            }
+          }
+
+          // Desenha a numeração cravada na linha de base
+          for (const y of uniqueY) {
+            pdfLibPage.drawText(String(lineNumber), {
+              x: margemX,
+              y: y,
+              size: 7.5,
+              font: font,
+              color: PDFLib.rgb(0.8, 0, 0) // Vermelho
+            });
+            lineNumber++;
+          }
+        }
+
+        statusEl.innerText = "Gerando PDF numerado...";
+        const pdfBytes = await pdfLibDoc.save();
+
+        // Dispara o download automático no navegador
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = selectedFile.name.replace('.pdf', '_linhas.pdf');
+        link.click();
+
+        statusEl.innerText = "✨ Concluído! O download começou.";
+      } catch (err) {
+        console.error(err);
+        statusEl.innerText = "❌ Erro ao processar o PDF. Verifique o arquivo.";
+      }
+    }
+  </script>
+</body>
+</html>

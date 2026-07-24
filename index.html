@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Revisor & Numerador de PDF</title>
+  <title>Revisar e Numerar </title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -32,7 +32,7 @@
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
     <div class="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-sm">📄</div>
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisor & Numerador</h1>
-    <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento.</p>
+    <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
     <!-- Upload -->
     <div class="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-400 transition-colors bg-gray-50/50">
@@ -46,14 +46,14 @@
     <!-- Botões de Ação -->
     <div class="flex flex-col w-full gap-3">
       <button id="btnBoth" onclick="startProcess('both')" disabled class="action-btn w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md">
-        Numerar e Abrir Revisor
+        Numerar e abrir revisor
       </button>
       <div class="flex gap-3">
         <button id="btnAnnotateOnly" onclick="startProcess('annotate')" disabled class="action-btn flex-1 bg-red-50 hover:bg-red-100 border border-red-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-red-600 font-medium py-2 rounded-lg transition-all text-xs">
-          Só Revisar
+          Apenas revisar
         </button>
         <button id="btnNumberOnly" onclick="startProcess('number')" disabled class="action-btn flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-gray-600 font-medium py-2 rounded-lg transition-all text-xs">
-          Só Numerar
+          Apenas numerar linhas
         </button>
       </div>
     </div>
@@ -524,7 +524,9 @@
                 x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH,
                 color: PDFLib.rgb(1, 0.9, 0.9), // Fundo rosa claro
                 borderColor: PDFLib.rgb(0.8, 0.2, 0.2), // Borda vermelha
-                borderWidth: 1
+                borderWidth: 1,
+                opacity: 0.4,
+                borderOpacity: 0.8
               });
             });
 

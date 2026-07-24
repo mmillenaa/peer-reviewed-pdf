@@ -21,7 +21,7 @@
     </div>
     
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Numerador de PDF</h1>
-    <p class="text-gray-500 text-sm mb-6">Adicione números de linha automaticamente ao seu PDF com alinhamento preciso.</p>
+    <p class="text-gray-500 text-sm mb-6">Adicione números de linha automaticamente ao seu PDF (Máximo: 20 MB).</p>
 
     <!-- Área de Upload -->
     <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-500 transition-colors bg-gray-50/50">
@@ -36,10 +36,10 @@
 
     <!-- Botão de Ação -->
     <button id="btnProcess" onclick="processPDF()" disabled class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg disabled:shadow-none mb-3">
-      Numerar linhas
+      Numerar Linhas
     </button>
 
-    <!-- Status -->
+    <!-- Status / Mensagens de Erro -->
     <div id="status" class="text-xs font-medium text-gray-500 min-h-[20px]"></div>
   </div>
 
@@ -47,16 +47,43 @@
     let fileBuffer = null;
     let selectedFile = null;
 
+    // LIMITE DE TAMANHO EM MB
+    const MAX_SIZE_MB = 20;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
     function handleFileSelect(event) {
       const file = event.target.files[0];
+      const statusEl = document.getElementById('status');
+      const btnProcess = document.getElementById('btnProcess');
+      
       if (!file) return;
+
+      // Reseta classes do elemento de mensagem
+      statusEl.className = "text-xs font-medium min-h-[20px]";
+
+      // 1. VALIDAÇÃO DE TAMANHO DO ARQUIVO
+      if (file.size > MAX_SIZE_BYTES) {
+        const tamanhoFormatado = (file.size / (1024 * 1024)).toFixed(1);
+        statusEl.className += " text-red-600 font-semibold";
+        statusEl.innerText = `⚠️ Arquivo muito grande (${tamanhoFormatado} MB). O limite suportado é de ${MAX_SIZE_MB} MB.`;
+        
+        document.getElementById('fileName').innerText = "Escolha outro PDF";
+        btnProcess.disabled = true;
+        fileBuffer = null;
+        selectedFile = null;
+        return;
+      }
+
+      // 2. ARQUIVO VÁLIDO
+      statusEl.className += " text-gray-500";
+      statusEl.innerText = "";
       selectedFile = file;
       document.getElementById('fileName').innerText = file.name;
       
       const reader = new FileReader();
       reader.onload = function(e) {
         fileBuffer = e.target.result;
-        document.getElementById('btnProcess').disabled = false;
+        btnProcess.disabled = false;
       };
       reader.readAsArrayBuffer(file);
     }
@@ -64,12 +91,11 @@
     async function processPDF() {
       if (!fileBuffer) return;
       const statusEl = document.getElementById('status');
+      statusEl.className = "text-xs font-medium text-gray-500 min-h-[20px]";
       statusEl.innerText = "Lendo estrutura do PDF...";
 
       try {
-        // Carrega via PDF.js para ler as coordenadas Y
         const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileBuffer) }).promise;
-        // Carrega via pdf-lib para desenhar
         const pdfLibDoc = await PDFLib.PDFDocument.load(fileBuffer);
         const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
@@ -86,7 +112,6 @@
 
           const textContent = await pdfjsPage.getTextContent();
           
-          // Limites em coordenadas PDF (Y=0 é a parte INFERIOR)
           const limiteTopo = pageHeight - 50;
           const limiteRodape = 45;
 
@@ -94,7 +119,6 @@
 
           for (const item of textContent.items) {
             if (!item.str || item.str.trim() === '') continue;
-            // item.transform[5] guarda a linha de base Y exata da fonte
             const yPos = item.transform[5];
 
             if (yPos >= limiteRodape && yPos <= limiteTopo) {
@@ -104,10 +128,8 @@
 
           if (yCoords.length === 0) continue;
 
-          // Ordena do topo para a base da página (Y decrescente)
           yCoords.sort((a, b) => b - a);
 
-          // Agrupa linhas na mesma altura visual
           let uniqueY = [];
           for (const y of yCoords) {
             if (uniqueY.length === 0) {
@@ -120,14 +142,13 @@
             }
           }
 
-          // Desenha a numeração cravada na linha de base
           for (const y of uniqueY) {
             pdfLibPage.drawText(String(lineNumber), {
               x: margemX,
               y: y,
               size: 7.5,
               font: font,
-              color: PDFLib.rgb(0.8, 0, 0) // Vermelho
+              color: PDFLib.rgb(0.8, 0, 0)
             });
             lineNumber++;
           }
@@ -136,17 +157,18 @@
         statusEl.innerText = "Gerando PDF numerado...";
         const pdfBytes = await pdfLibDoc.save();
 
-        // Dispara o download automático no navegador
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = selectedFile.name.replace('.pdf', '_linhas.pdf');
         link.click();
 
+        statusEl.className = "text-xs font-semibold text-green-600 min-h-[20px]";
         statusEl.innerText = "✨ Concluído! O download começou.";
       } catch (err) {
         console.error(err);
-        statusEl.innerText = "❌ Erro ao processar o PDF. Verifique o arquivo.";
+        statusEl.className = "text-xs font-semibold text-red-600 min-h-[20px]";
+        statusEl.innerText = "❌ Erro ao processar o PDF. Verifique se o arquivo não está corrompido.";
       }
     }
   </script>

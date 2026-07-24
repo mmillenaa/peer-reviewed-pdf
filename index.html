@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Revisar e Numerar </title>
+  <title>Revisar e Numerar PDF</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -30,7 +30,10 @@
 
   <!-- TELA INICIAL (Caixa Flutuante Centralizada) -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
-    <div class="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-sm">📄</div>
+    
+    <!-- Logo do App -->
+    <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4">
+    
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
     <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
@@ -43,19 +46,14 @@
       </label>
     </div>
 
-    <!-- Botões de Ação -->
+    <!-- Botões de Ação Atualizados -->
     <div class="flex flex-col w-full gap-3">
       <button id="btnBoth" onclick="startProcess('both')" disabled class="action-btn w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md">
-        Numerar e abrir revisor
+        Abrir Revisor
       </button>
-      <div class="flex gap-3">
-        <button id="btnAnnotateOnly" onclick="startProcess('annotate')" disabled class="action-btn flex-1 bg-red-50 hover:bg-red-100 border border-red-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-red-600 font-medium py-2 rounded-lg transition-all text-xs">
-          Apenas revisar
-        </button>
-        <button id="btnNumberOnly" onclick="startProcess('number')" disabled class="action-btn flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-gray-600 font-medium py-2 rounded-lg transition-all text-xs">
-          Apenas numerar linhas
-        </button>
-      </div>
+      <button id="btnNumberOnly" onclick="startProcess('number')" disabled class="action-btn w-full bg-gray-50 hover:bg-gray-100 border border-gray-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-gray-600 font-medium py-2 rounded-lg transition-all text-sm">
+        Apenas numerar linhas (Download)
+      </button>
     </div>
     
     <div id="statusMsg" class="text-xs font-medium text-gray-500 mt-4 h-4"></div>
@@ -116,7 +114,7 @@
       <!-- Botão Baixar Final -->
       <div class="p-4 border-t border-gray-100 bg-white">
         <button onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
-          ⬇️ Baixar PDF Final
+          ⬇️ Baixar PDF final
         </button>
       </div>
     </div>
@@ -170,6 +168,7 @@
       try {
         let bufferToLoad = rawFileBuffer.slice(0);
 
+        // A numeração agora sempre roda na opção "both" e na opção "number"
         if (mode === 'number' || mode === 'both') {
           bufferToLoad = await applyNumbering(bufferToLoad);
         }
@@ -351,15 +350,14 @@
       pageAnns.forEach(ann => {
         ann.rects.forEach(r => {
           if (ann.type === 'highlight' || ann.type === 'comment') {
-            // Comentários também geram um fundo colorido e borda vermelha suave
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', r.x); rect.setAttribute('y', r.y);
             rect.setAttribute('width', r.w); rect.setAttribute('height', r.h);
             
             if (ann.type === 'comment') {
-              rect.setAttribute('fill', '#fee2e2'); // Fundo rosinha claro
+              rect.setAttribute('fill', '#fee2e2'); 
               rect.setAttribute('opacity', '0.6');
-              rect.setAttribute('stroke', '#dc2626'); // Borda vermelha
+              rect.setAttribute('stroke', '#dc2626'); 
               rect.setAttribute('stroke-width', '1');
             } else {
               rect.setAttribute('fill', ann.colorHex); 
@@ -413,7 +411,7 @@
           if (ann.isEditing) {
             html += `
               <textarea id="textarea-${ann.id}" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="Digite seu comentário...">${ann.commentText}</textarea>
-              <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar Comentário</button>
+              <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar comentário</button>
             `;
           } else {
             html += `

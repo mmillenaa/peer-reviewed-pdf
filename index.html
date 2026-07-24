@@ -91,7 +91,6 @@
     <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">Rolagem Vertical Ativa</span>
           <span class="text-xs text-gray-500 ml-2">Dica: Use <b>Ctrl + F</b> para buscar no texto.</span>
         </div>
         <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
@@ -111,10 +110,10 @@
       <div class="p-5 border-b border-gray-100 bg-gray-50">
         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">Ferramenta Ativa</span>
         <div class="grid grid-cols-2 gap-2 mb-4">
-          <button onclick="setTool('highlight')" id="tool-highlight" class="tool-btn py-2 rounded-lg text-xs font-semibold border transition-all">Grifar</button>
-          <button onclick="setTool('comment')" id="tool-comment" class="tool-btn py-2 rounded-lg text-xs font-semibold border transition-all">Comentar</button>
-          <button onclick="setTool('underline')" id="tool-underline" class="tool-btn py-2 rounded-lg text-xs font-semibold border transition-all">Sublinhar</button>
-          <button onclick="setTool('strike')" id="tool-strike" class="tool-btn py-2 rounded-lg text-xs font-semibold border transition-all">Tachar</button>
+          <button onclick="setTool('highlight')" id="tool-highlight" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Grifar</button>
+          <button onclick="setTool('comment')" id="tool-comment" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Comentar</button>
+          <button onclick="setTool('underline')" id="tool-underline" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Sublinhar</button>
+          <button onclick="setTool('strike')" id="tool-strike" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Tachar</button>
         </div>
         
         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Cor da Marcação</span>
@@ -127,7 +126,7 @@
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
-        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF para marcar ou adicionar comentários paralelos.</p>
+        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>
       </div>
 
       <div class="p-4 border-t border-gray-100 bg-white">
@@ -146,15 +145,13 @@
     let pdfjsDoc = null;
     let pdfLibDoc = null;
     
-    // Estado da Interface
-    let activeTool = 'highlight'; // highlight, comment, underline, strike
+    // Estado da Interface - Inicia como NULL (Nenhuma ferramenta selecionada)
+    let activeTool = null; 
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
     let annotations = []; // Histórico
     let scale = 1.3;
     let commentCounter = 1; // Para numerar [CM1], [CM2]
-
-    setTool('highlight');
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
@@ -214,7 +211,7 @@
       }
     }
 
-    // --- NUMERAÇÃO DE LINHAS (AGORA EM VERMELHO) ---
+    // --- NUMERAÇÃO DE LINHAS (EM VERMELHO) ---
     async function applyNumbering(buffer) {
       const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
@@ -248,7 +245,6 @@
         }
 
         for (const y of uniqueY) {
-          // Alterado para Vermelho: rgb(0.8, 0.1, 0.1)
           pdfLibPage.drawText(String(lineNumber), { x: margemX, y: y, size: 7.5, font: font, color: PDFLib.rgb(0.8, 0.1, 0.1) });
           lineNumber++;
         }
@@ -256,7 +252,7 @@
       return await tempLibDoc.save();
     }
 
-    // --- RENDERIZAÇÃO DE TODAS AS PÁGINAS (SCROLL CONTÍNUO) ---
+    // --- RENDERIZAÇÃO DE TODAS AS PÁGINAS ---
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = ''; 
@@ -305,7 +301,6 @@
           textDivs: []
         });
 
-        // Evento de seleção atrelado especificamente a esta página
         textLayer.addEventListener('mouseup', handleTextSelection);
       }
       redrawAnnotations();
@@ -318,8 +313,10 @@
         btn.classList.add('bg-white', 'border-gray-200', 'text-gray-600');
       });
       const activeBtn = document.getElementById(`tool-${tool}`);
-      activeBtn.classList.remove('bg-white', 'border-gray-200', 'text-gray-600');
-      activeBtn.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+      if(activeBtn) {
+        activeBtn.classList.remove('bg-white', 'border-gray-200', 'text-gray-600');
+        activeBtn.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+      }
     }
 
     function setColor(hex, rgb) {
@@ -327,10 +324,16 @@
       activeColorRGB = rgb;
     }
 
-    // --- CAPTURA DE TEXTO (AGORA IDENTIFICA A PÁGINA CLICADA) ---
+    // --- CAPTURA DE TEXTO COM VERIFICAÇÃO DE FERRAMENTA ---
     function handleTextSelection(e) {
       const selection = window.getSelection();
       if (selection.isCollapsed) return;
+
+      if (!activeTool) {
+        selection.removeAllRanges();
+        alert("Por favor, selecione uma ferramenta no painel lateral (Grifar, Comentar, etc.) antes de marcar o texto.");
+        return;
+      }
 
       const range = selection.getRangeAt(0);
       const rects = range.getClientRects();
@@ -371,7 +374,6 @@
 
     // --- DESENHO NO BROWSER ---
     function redrawAnnotations() {
-      // Limpa todos os SVGs
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
 
       annotations.forEach(ann => {
@@ -417,7 +419,7 @@
       container.innerHTML = '';
 
       if (annotations.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Nenhuma anotação.</p>';
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>';
         return;
       }
 

@@ -108,7 +108,10 @@
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
       
       <div class="p-5 border-b border-gray-100 bg-gray-50">
-        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">Ferramentas</span>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Ferramenta Ativa</span>
+          <button onclick="clearTool()" class="text-[10px] text-gray-500 hover:text-red-500 underline">Desativar ferramentas</button>
+        </div>
         <div class="grid grid-cols-2 gap-2 mb-4">
           <button onclick="setTool('highlight')" id="tool-highlight" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Grifar</button>
           <button onclick="setTool('comment')" id="tool-comment" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Comentar</button>
@@ -319,6 +322,14 @@
       }
     }
 
+    function clearTool() {
+      activeTool = null;
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+        btn.classList.add('bg-white', 'border-gray-200', 'text-gray-600');
+      });
+    }
+
     function setColor(hex, rgb) {
       activeColorHex = hex;
       activeColorRGB = rgb;
@@ -329,9 +340,8 @@
       const selection = window.getSelection();
       if (selection.isCollapsed) return;
 
+      // Se não houver ferramenta ativa, permite a seleção nativa para Ctrl+C
       if (!activeTool) {
-        selection.removeAllRanges();
-        alert("Por favor, selecione uma ferramenta no painel lateral (Grifar, Comentar, etc.) antes de marcar o texto.");
         return;
       }
 

@@ -12,11 +12,11 @@
   </script>
   <style>
     /* Estilos para a Camada de Texto invisível */
-    #pdfWrapper { position: relative; display: inline-block; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .pdf-page-wrapper { position: relative; display: inline-block; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 20px; background: white;}
     canvas { display: block; }
     .textLayer {
       position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-      overflow: hidden; opacity: 0.2; /* Deixe em 0 na versão de produção */
+      overflow: hidden; opacity: 0.2; /* Deixe em 0 na versão de produção para esconder totalmente */
       line-height: 1.0;
     }
     .textLayer ::selection { background: rgba(0, 0, 255, 0.3); }
@@ -24,20 +24,24 @@
       color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%;
     }
     .annotationLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    
+    /* Scrollbar customizada para o painel principal */
+    #scrollContainer::-webkit-scrollbar { width: 10px; }
+    #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
+    #scrollContainer::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
+    #scrollContainer::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-all duration-300" id="mainBody">
 
-  <!-- TELA INICIAL (Caixa Flutuante Centralizada) -->
+  <!-- TELA INICIAL -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
     
-    <!-- Logo do App -->
     <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
     
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
     <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
-    <!-- Upload -->
     <div class="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-400 transition-colors bg-gray-50/50">
       <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
       <label for="pdfInput" class="cursor-pointer flex flex-col items-center">
@@ -46,7 +50,6 @@
       </label>
     </div>
 
-    <!-- Botões de Ação Atualizados -->
     <div class="flex flex-col w-full gap-3">
       <button id="btnBoth" onclick="startProcess('both')" disabled class="action-btn w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md">
         Abrir Revisor
@@ -64,21 +67,15 @@
         Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
       </p>
       
-      <!-- Badges Acadêmicos (Atualizados com as imagens) -->
       <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-        <!-- Lattes -->
         <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 transition-colors">
-          <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg/@@images/e29e9c29-a848-4a8f-a2a5-c16b980326ae.jpeg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain">
+          <img src="http://www2.ufac.br/ccsd/saudecoletiva/iconlattes.png" alt="Lattes" class="h-4 w-auto rounded-sm object-contain">
           CV Lattes
         </a>
-        
-        <!-- ORCID -->
         <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 transition-colors">
           <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain">
           ORCID
         </a>
-        
-        <!-- BV FAPESP -->
         <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 transition-colors">
           <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_BV_FAPESP.jpg" alt="BV FAPESP" class="h-4 w-auto rounded-sm object-contain">
           BV FAPESP
@@ -87,35 +84,30 @@
     </div>
   </div>
 
-  <!-- WORKSPACE DE REVISÃO (Oculto inicialmente) -->
-  <div id="workspace" class="max-w-7xl w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
+  <!-- WORKSPACE DE REVISÃO -->
+  <div id="workspace" class="max-w-[95%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
     
     <!-- Visualizador Central -->
-    <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[85vh] shadow-lg">
+    <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full" id="pageIndicator">Página 1</span>
+          <span class="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">Rolagem Vertical Ativa</span>
+          <span class="text-xs text-gray-500 ml-2">Dica: Use <b>Ctrl + F</b> para buscar no texto.</span>
         </div>
-        <div class="flex gap-2">
-          <button onclick="changePage(-1)" class="px-4 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium shadow-sm transition-all">Anterior</button>
-          <button onclick="changePage(1)" class="px-4 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium shadow-sm transition-all">Próxima</button>
-        </div>
+        <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
       </div>
       
-      <div class="flex-1 overflow-auto p-8 flex justify-center bg-gray-200 relative" id="scrollContainer">
-        <!-- O Wrapper engloba o Canvas, a Camada de Texto e a Camada de Desenho SVG -->
-        <div id="pdfWrapper">
-          <canvas id="pdfCanvas"></canvas>
-          <div id="textLayer" class="textLayer"></div>
-          <svg id="svgOverlay" class="annotationLayer"></svg>
+      <!-- Container com Scroll -->
+      <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
+        <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full">
+          <!-- Páginas serão geradas dinamicamente aqui -->
         </div>
       </div>
     </div>
 
-    <!-- Painel Lateral: Ferramentas e Lista de Comentários -->
-    <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[85vh] overflow-hidden">
+    <!-- Painel Lateral -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
       
-      <!-- Toolbar -->
       <div class="p-5 border-b border-gray-100 bg-gray-50">
         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">Ferramenta Ativa</span>
         <div class="grid grid-cols-2 gap-2 mb-4">
@@ -134,12 +126,10 @@
         </div>
       </div>
 
-      <!-- Lista de Ações -->
       <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
         <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF para marcar ou adicionar comentários paralelos.</p>
       </div>
 
-      <!-- Botão Baixar Final -->
       <div class="p-4 border-t border-gray-100 bg-white">
         <button onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
           ⬇️ Baixar PDF final
@@ -157,7 +147,6 @@
     let pdfLibDoc = null;
     
     // Estado da Interface
-    let currentPage = 1;
     let activeTool = 'highlight'; // highlight, comment, underline, strike
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
@@ -165,7 +154,6 @@
     let scale = 1.3;
     let commentCounter = 1; // Para numerar [CM1], [CM2]
 
-    // Inicializa a interface das ferramentas
     setTool('highlight');
 
     function handleFileSelect(event) {
@@ -196,7 +184,6 @@
       try {
         let bufferToLoad = rawFileBuffer.slice(0);
 
-        // A numeração agora sempre roda na opção "both" e na opção "number"
         if (mode === 'number' || mode === 'both') {
           bufferToLoad = await applyNumbering(bufferToLoad);
         }
@@ -208,7 +195,6 @@
           return;
         }
 
-        // Abre o workspace
         pdfLibDoc = await PDFLib.PDFDocument.load(bufferToLoad);
         pdfjsDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
         
@@ -220,7 +206,7 @@
         ws.classList.remove('hidden');
         ws.classList.add('grid');
         
-        renderPage(1);
+        await renderAllPages();
         
       } catch (err) {
         console.error(err);
@@ -228,7 +214,7 @@
       }
     }
 
-    // --- NUMERAÇÃO DE LINHAS ---
+    // --- NUMERAÇÃO DE LINHAS (AGORA EM VERMELHO) ---
     async function applyNumbering(buffer) {
       const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
@@ -262,54 +248,67 @@
         }
 
         for (const y of uniqueY) {
-          pdfLibPage.drawText(String(lineNumber), { x: margemX, y: y, size: 7.5, font: font, color: PDFLib.rgb(0.5, 0.5, 0.5) });
+          // Alterado para Vermelho: rgb(0.8, 0.1, 0.1)
+          pdfLibPage.drawText(String(lineNumber), { x: margemX, y: y, size: 7.5, font: font, color: PDFLib.rgb(0.8, 0.1, 0.1) });
           lineNumber++;
         }
       }
       return await tempLibDoc.save();
     }
 
-    // --- RENDERIZAÇÃO DO CANVAS ---
-    async function renderPage(pageNum) {
-      currentPage = pageNum;
-      document.getElementById('pageIndicator').innerText = `Pág. ${pageNum} / ${pdfjsDoc.numPages}`;
+    // --- RENDERIZAÇÃO DE TODAS AS PÁGINAS (SCROLL CONTÍNUO) ---
+    async function renderAllPages() {
+      const viewer = document.getElementById('pdfViewer');
+      viewer.innerHTML = ''; 
       
-      const page = await pdfjsDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: scale });
+      document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} páginas`;
 
-      const canvas = document.getElementById('pdfCanvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pdf-page-wrapper';
+        wrapper.dataset.pageNum = i;
+        wrapper.id = `page-wrapper-${i}`;
 
-      const wrapper = document.getElementById('pdfWrapper');
-      wrapper.style.width = `${viewport.width}px`;
-      wrapper.style.height = `${viewport.height}px`;
+        const canvas = document.createElement('canvas');
+        canvas.id = `canvas-${i}`;
+        wrapper.appendChild(canvas);
 
-      const svg = document.getElementById('svgOverlay');
-      svg.setAttribute('width', viewport.width);
-      svg.setAttribute('height', viewport.height);
+        const textLayer = document.createElement('div');
+        textLayer.className = 'textLayer';
+        textLayer.id = `textLayer-${i}`;
+        wrapper.appendChild(textLayer);
 
-      await page.render({ canvasContext: context, viewport: viewport }).promise;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'annotationLayer');
+        svg.id = `svgOverlay-${i}`;
+        wrapper.appendChild(svg);
 
-      // Camada de seleção
-      const textLayerDiv = document.getElementById('textLayer');
-      textLayerDiv.innerHTML = '';
-      const textContent = await page.getTextContent();
-      
-      pdfjsLib.renderTextLayer({
-        textContentSource: textContent,
-        container: textLayerDiv,
-        viewport: viewport,
-        textDivs: []
-      });
+        viewer.appendChild(wrapper);
 
+        const page = await pdfjsDoc.getPage(i);
+        const viewport = page.getViewport({ scale: scale });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        wrapper.style.width = `${viewport.width}px`;
+        wrapper.style.height = `${viewport.height}px`;
+
+        const context = canvas.getContext('2d');
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        const textContent = await page.getTextContent();
+        
+        pdfjsLib.renderTextLayer({
+          textContentSource: textContent,
+          container: textLayer,
+          viewport: viewport,
+          textDivs: []
+        });
+
+        // Evento de seleção atrelado especificamente a esta página
+        textLayer.addEventListener('mouseup', handleTextSelection);
+      }
       redrawAnnotations();
-    }
-
-    function changePage(delta) {
-      const newPage = currentPage + delta;
-      if (newPage >= 1 && newPage <= pdfjsDoc.numPages) renderPage(newPage);
     }
 
     function setTool(tool) {
@@ -328,14 +327,16 @@
       activeColorRGB = rgb;
     }
 
-    // --- CAPTURA DE TEXTO (MOUSE) ---
-    document.getElementById('textLayer').addEventListener('mouseup', function(e) {
+    // --- CAPTURA DE TEXTO (AGORA IDENTIFICA A PÁGINA CLICADA) ---
+    function handleTextSelection(e) {
       const selection = window.getSelection();
       if (selection.isCollapsed) return;
 
       const range = selection.getRangeAt(0);
       const rects = range.getClientRects();
+      
       const wrapperRect = this.getBoundingClientRect();
+      const pageNum = parseInt(this.parentElement.dataset.pageNum);
 
       let capturedRects = [];
       for (let i = 0; i < rects.length; i++) {
@@ -352,30 +353,31 @@
         annotations.push({
           id: Date.now(),
           type: activeTool,
-          page: currentPage,
+          page: pageNum,
           rects: capturedRects,
           colorHex: activeColorHex,
           colorRGB: activeColorRGB,
           text: selection.toString(),
-          commentText: '', // O texto que o usuário digita
+          commentText: '', 
           cmIndex: isComment ? commentCounter++ : null,
-          isEditing: isComment // Abre o input logo após selecionar
+          isEditing: isComment 
         });
       }
 
       selection.removeAllRanges();
       redrawAnnotations();
       updateSidebar();
-    });
+    }
 
     // --- DESENHO NO BROWSER ---
     function redrawAnnotations() {
-      const svg = document.getElementById('svgOverlay');
-      svg.innerHTML = '';
+      // Limpa todos os SVGs
+      document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
 
-      const pageAnns = annotations.filter(a => a.page === currentPage);
-      
-      pageAnns.forEach(ann => {
+      annotations.forEach(ann => {
+        const svg = document.getElementById(`svgOverlay-${ann.page}`);
+        if(!svg) return;
+
         ann.rects.forEach(r => {
           if (ann.type === 'highlight' || ann.type === 'comment') {
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -425,7 +427,6 @@
         
         const typeLabel = ann.type === 'comment' ? `[CM${ann.cmIndex}] Comentário` : ann.type === 'highlight' ? 'Grifo' : ann.type === 'underline' ? 'Sublinhado' : 'Tachado';
         
-        // Cabeçalho do item
         let html = `
           <div class="flex justify-between items-center mb-2">
             <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">${typeLabel} <span class="font-normal normal-case text-gray-400 ml-1">(Pág. ${ann.page})</span></span>
@@ -480,7 +481,6 @@
       updateSidebar();
     };
 
-    // --- FUNÇÃO DE ENVOLVER TEXTO NAS CAIXAS PDF ---
     function splitTextToLines(text, maxWidth, font, fontSize) {
       const words = text.split(' ');
       let lines = [];
@@ -499,7 +499,7 @@
       return lines;
     }
 
-    // --- EXPORTAÇÃO: EXPANSÃO DO PDF E DESENHO ---
+    // --- EXPORTAÇÃO ---
     async function downloadFinalPDF() {
       const pages = pdfLibDoc.getPages();
       const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
@@ -512,27 +512,22 @@
         const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
         const { width: originalWidth, height: pageHeight } = page.getSize();
         
-        // Separa comentários das outras marcações
         const comments = pageAnns.filter(a => a.type === 'comment');
         
-        // Se a página tem comentários, expande fisicamente a largura
         if (comments.length > 0) {
           page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
-          // Opcional: Fundo levemente cinza na margem nova
           page.drawRectangle({ x: originalWidth, y: 0, width: EXTRA_MARGIN_WIDTH, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
         }
 
-        let nextAvailableY = pageHeight - 20; // Controle de colisão para as caixas de texto
+        let nextAvailableY = pageHeight - 20; 
 
-        // Ordena comentários do topo para a base (Y maior no pdfLib é o topo)
         comments.sort((a, b) => b.rects[0].y - a.rects[0].y);
 
         pageAnns.forEach(ann => {
           const [r, g, b] = ann.colorRGB;
 
           if (ann.type === 'comment') {
-            // Desenha o fundo rosinha claro sobre a palavra no texto
-            let maxRightX = 0; // Ponto mais à direita do grifo para ligar a linha
+            let maxRightX = 0; 
             let basePdfY = 0;
 
             ann.rects.forEach(rect => {
@@ -543,20 +538,19 @@
               
               if ((pdfX + pdfW) > maxRightX) {
                 maxRightX = pdfX + pdfW;
-                basePdfY = pdfY - (pdfH / 2); // Meio da seleção
+                basePdfY = pdfY - (pdfH / 2); 
               }
               
               page.drawRectangle({
                 x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH,
-                color: PDFLib.rgb(1, 0.9, 0.9), // Fundo rosa claro
-                borderColor: PDFLib.rgb(0.8, 0.2, 0.2), // Borda vermelha
+                color: PDFLib.rgb(1, 0.9, 0.9),
+                borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
                 borderWidth: 1,
                 opacity: 0.4,
                 borderOpacity: 0.8
               });
             });
 
-            // Configuração da Caixa Lateral
             const boxPadding = 8;
             const boxMarginLeft = 20;
             const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;
@@ -564,42 +558,37 @@
             const title = `Commented [CM${ann.cmIndex}]: `;
             const lines = splitTextToLines(ann.commentText, contentWidth, font, 9);
             
-            const textHeight = (lines.length + 1) * 12; // +1 pro titulo
+            const textHeight = (lines.length + 1) * 12; 
             const boxHeight = textHeight + (boxPadding * 2);
             
-            // Calculo de colisão: tenta alinhar com o grifo, mas empurra pra baixo se bater na caixa anterior
             let targetY = basePdfY + (boxHeight / 2);
             if (targetY > nextAvailableY) {
-              targetY = nextAvailableY; // Empurra pra baixo (lembrando que Y desce de cima pra baixo)
+              targetY = nextAvailableY; 
             }
-            nextAvailableY = targetY - boxHeight - 10; // Atualiza pro próximo
+            nextAvailableY = targetY - boxHeight - 10; 
 
             const boxLeftX = originalWidth + boxMarginLeft;
             const boxBottomY = targetY - boxHeight;
 
-            // Linha conectando o texto selecionado à caixa lateral
             page.drawLine({
               start: { x: maxRightX, y: basePdfY },
               end: { x: boxLeftX, y: targetY - (boxHeight / 2) },
               thickness: 1,
-              color: PDFLib.rgb(0.8, 0.2, 0.2) // Vermelho
+              color: PDFLib.rgb(0.8, 0.2, 0.2) 
             });
 
-            // Desenha a caixa Branca com Borda Vermelha (estilo Adobe)
             page.drawRectangle({
               x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight,
-              color: PDFLib.rgb(1, 1, 1), // Branco
-              borderColor: PDFLib.rgb(0.8, 0.2, 0.2), // Borda Vermelha
+              color: PDFLib.rgb(1, 1, 1), 
+              borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
               borderWidth: 1
             });
 
-            // Título [CMx] em Negrito
             page.drawText(title, {
               x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - 9,
               size: 9, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1)
             });
 
-            // Desenha as linhas do comentário
             let currentTextY = boxBottomY + boxHeight - boxPadding - 21;
             lines.forEach(line => {
               page.drawText(line, {
@@ -610,7 +599,6 @@
             });
 
           } else {
-            // Desenho padrão para Grifos normais, Tachar e Sublinhar
             ann.rects.forEach(rect => {
               const pdfX = rect.x / scale;
               const pdfY = pageHeight - (rect.y / scale);

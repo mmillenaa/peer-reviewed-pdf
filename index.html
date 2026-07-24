@@ -3,52 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Numerador Automático de PDF</title>
-  <!-- Tailwind CSS para design moderno -->
+  <title>Numerador & Revisor de PDF</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- PDF.js (Extração de texto e coordenadas) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- pdf-lib (Modificação e desenho no PDF) -->
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- API da Adobe para visualização e anotações -->
+  <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100">
-    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-      📄
-    </div>
-    
-    <h1 class="text-2xl font-bold text-gray-800 mb-1">Numerador de PDF</h1>
-    <p class="text-gray-500 text-sm mb-6">Adicione números de linha automaticamente ao seu PDF (Máximo: 20 MB).</p>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
 
-    <!-- Área de Upload -->
-    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-500 transition-colors bg-gray-50/50">
+  <!-- Painel de Controle Superior -->
+  <div class="bg-white p-6 rounded-2xl shadow-md max-w-4xl w-full text-center mb-6 border border-gray-200">
+    <h1 class="text-2xl font-bold text-gray-800 mb-1">📄 Numerador & Revisor de PDF</h1>
+    <p class="text-gray-500 text-sm mb-4">Numere as linhas do seu PDF e faça revisões com grifos, tachados e comentários na lateral.</p>
+
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
       <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
-      <label for="pdfInput" class="cursor-pointer flex flex-col items-center">
-        <svg class="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-        </svg>
-        <span class="text-gray-600 text-sm font-medium" id="fileName">Escolha ou arraste um PDF</span>
+      <label for="pdfInput" class="cursor-pointer bg-gray-50 hover:bg-gray-100 border-2 border-dashed border-gray-300 px-6 py-3 rounded-xl text-gray-700 font-medium transition-all">
+        <span id="fileName">📁 Selecionar PDF</span>
       </label>
+
+      <button id="btnProcess" onclick="processPDF()" disabled class="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow">
+        1. Numerar Linhas
+      </button>
     </div>
 
-    <!-- Botão de Ação -->
-    <button id="btnProcess" onclick="processPDF()" disabled class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg disabled:shadow-none mb-3">
-      Numerar linhas
-    </button>
-
-    <!-- Status / Mensagens de Erro -->
-    <div id="status" class="text-xs font-medium text-gray-500 min-h-[20px] break-words"></div>
+    <div id="status" class="text-xs font-medium text-gray-500 mt-3 min-h-[16px]"></div>
   </div>
 
+  <!-- Área de Visualização e Anotações (Adobe View SDK) -->
+  <div id="adobe-pdf-view" class="w-full max-w-5xl h-[750px] bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200 hidden"></div>
+
   <script>
+    // COLE SUA CHAVE DA ADOBE AQUI ABAIXO:
+    const ADOBE_KEY = "SUA_CHAVE_ADOBE_AQUI";
+
     let fileBuffer = null;
     let selectedFile = null;
+    let pdfNumeradoArrayBuffer = null;
 
     const MAX_SIZE_MB = 20;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
@@ -57,21 +54,12 @@
       
       if (!file) return;
 
-      statusEl.className = "text-xs font-medium min-h-[20px] break-words";
-
-      if (file.size > MAX_SIZE_BYTES) {
-        const tamanhoFormatado = (file.size / (1024 * 1024)).toFixed(1);
-        statusEl.className += " text-red-600 font-semibold";
-        statusEl.innerText = `⚠️ Arquivo muito grande (${tamanhoFormatado} MB). O limite é de ${MAX_SIZE_MB} MB.`;
-        
-        document.getElementById('fileName').innerText = "Escolha outro PDF";
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        statusEl.innerText = `⚠️ Arquivo muito grande. O limite é de ${MAX_SIZE_MB} MB.`;
         btnProcess.disabled = true;
-        fileBuffer = null;
-        selectedFile = null;
         return;
       }
 
-      statusEl.className += " text-gray-500";
       statusEl.innerText = "";
       selectedFile = file;
       document.getElementById('fileName').innerText = file.name;
@@ -87,16 +75,11 @@
     async function processPDF() {
       if (!fileBuffer) return;
       const statusEl = document.getElementById('status');
-      statusEl.className = "text-xs font-medium text-gray-500 min-h-[20px] break-words";
-      statusEl.innerText = "Lendo estrutura do PDF...";
+      statusEl.innerText = "Numerando linhas...";
 
       try {
-        // CORREÇÃO: Passa cópias independentes (.slice(0)) do buffer de memória
-        const pdfjsData = new Uint8Array(fileBuffer.slice(0));
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: pdfjsData }).promise;
-
-        const pdfLibData = fileBuffer.slice(0);
-        const pdfLibDoc = await PDFLib.PDFDocument.load(pdfLibData);
+        const pdfjsDoc = await pdfjsLib.getDocument({ data: new Uint8Array(fileBuffer.slice(0)) }).promise;
+        const pdfLibDoc = await PDFLib.PDFDocument.load(fileBuffer.slice(0));
         const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
         let lineNumber = 1;
@@ -104,41 +87,27 @@
         const margemX = 20;
 
         for (let pageNum = 1; pageNum <= pdfjsDoc.numPages; pageNum++) {
-          statusEl.innerText = `Processando página ${pageNum} de ${pdfjsDoc.numPages}...`;
-          
           const pdfjsPage = await pdfjsDoc.getPage(pageNum);
           const pdfLibPage = pdfLibDoc.getPage(pageNum - 1);
           const { height: pageHeight } = pdfLibPage.getSize();
-
           const textContent = await pdfjsPage.getTextContent();
           
-          const limiteTopo = pageHeight - 50;
-          const limiteRodape = 45;
-
           let yCoords = [];
-
           for (const item of textContent.items) {
-            if (!item.str || item.str.trim() === '' || !item.transform || item.transform.length < 6) continue;
+            if (!item.str || item.str.trim() === '' || !item.transform) continue;
             const yPos = item.transform[5];
-
-            if (yPos >= limiteRodape && yPos <= limiteTopo) {
+            if (yPos >= 45 && yPos <= (pageHeight - 50)) {
               yCoords.push(yPos);
             }
           }
 
           if (yCoords.length === 0) continue;
-
           yCoords.sort((a, b) => b - a);
 
           let uniqueY = [];
           for (const y of yCoords) {
-            if (uniqueY.length === 0) {
+            if (uniqueY.length === 0 || Math.abs(uniqueY[uniqueY.length - 1] - y) > tolY) {
               uniqueY.push(y);
-            } else {
-              const lastY = uniqueY[uniqueY.length - 1];
-              if (Math.abs(lastY - y) > tolY) {
-                uniqueY.push(y);
-              }
             }
           }
 
@@ -154,22 +123,39 @@
           }
         }
 
-        statusEl.innerText = "Gerando PDF numerado...";
         const pdfBytes = await pdfLibDoc.save();
+        pdfNumeradoArrayBuffer = pdfBytes.buffer;
 
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = selectedFile.name.replace('.pdf', '_linhas.pdf');
-        link.click();
+        statusEl.innerText = "✨ Numeração concluída! Abrindo editor de anotações...";
+        
+        // Abre o leitor da Adobe com o PDF numerado
+        carregarLeitorAdobe(pdfNumeradoArrayBuffer, selectedFile.name.replace('.pdf', '_linhas.pdf'));
 
-        statusEl.className = "text-xs font-semibold text-green-600 min-h-[20px] break-words";
-        statusEl.innerText = "✨ Concluído! O download começou.";
       } catch (err) {
-        console.error("Erro detalhado no processamento:", err);
-        statusEl.className = "text-xs font-semibold text-red-600 min-h-[20px] break-words";
-        statusEl.innerText = `❌ Erro ao processar: ${err.message || 'Falha na leitura do PDF'}`;
+        console.error(err);
+        statusEl.innerText = "❌ Erro ao numerar PDF.";
       }
+    }
+
+    function carregarLeitorAdobe(arrayBuffer, nomeArquivo) {
+      document.getElementById('adobe-pdf-view').classList.remove('hidden');
+
+      const adobeDCView = new AdobeDC.View({
+        clientId: 60e41bac5819478c88975c8aa6b45232,
+        divId: "adobe-pdf-view"
+      });
+
+      adobeDCView.previewFile({
+        content: { promise: Promise.resolve(arrayBuffer) },
+        metaData: { fileName: nomeArquivo }
+      }, {
+        // Habilita barra de ferramentas completa + anotações + comentários na lateral
+        showAnnotationTools: true,
+        showLeftHandPanel: true,
+        enableAnnotationAPIs: true,
+        includePDFAnnotations: true,
+        dockPageControls: false
+      });
     }
   </script>
 </body>

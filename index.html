@@ -74,6 +74,7 @@
       word-wrap: break-word;
       z-index: 10;
       color: #1f2937;
+      min-height: 40px;
     }
     .comment-bubble .cm-header {
       font-weight: 700;
@@ -88,6 +89,10 @@
       color: #374151;
       max-height: 120px;
       overflow-y: auto;
+    }
+    .comment-bubble .cm-text.placeholder {
+      color: #9ca3af;
+      font-style: italic;
     }
     .comment-bubble .cm-edit-btn {
       position: absolute;
@@ -186,7 +191,6 @@
 
   <!-- TELA INICIAL -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
-    <!-- LOGO (restaurado) -->
     <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
 
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
@@ -210,7 +214,6 @@
     </div>
     <div id="statusMsg" class="text-xs font-medium text-gray-500 mt-4 h-4"></div>
 
-    <!-- Rodapé -->
     <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
       <p class="text-xs text-gray-500">Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a></p>
       <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
@@ -230,7 +233,6 @@
   <!-- WORKSPACE -->
   <div id="workspace" class="max-w-[98%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
     
-    <!-- Visualizador Central -->
     <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[92vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4 flex-wrap gap-2">
         <div class="flex items-center gap-3">
@@ -242,12 +244,10 @@
       
       <div class="flex-1 overflow-auto p-6 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
         <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full">
-          <!-- Páginas geradas dinamicamente -->
         </div>
       </div>
     </div>
 
-    <!-- Painel Lateral -->
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[92vh] overflow-hidden">
       <div class="p-5 border-b border-gray-100 bg-gray-50">
         <div class="flex justify-between items-center mb-3">
@@ -338,7 +338,6 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         rawFileBuffer = e.target.result;
-        // Habilita os botões (agora com a classe .action-btn restaurada)
         document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = false);
         annotations = [];
         commentCounter = 1;
@@ -547,6 +546,29 @@
       saveAnnotationsToStorage();
       redrawAnnotations();
       updateSidebar();
+
+      // Se for comentário, abre o editor automaticamente
+      if (isComment) {
+        // Aguarda o DOM atualizar e abre o editor no balão
+        requestAnimationFrame(() => {
+          const bubble = document.querySelector(`.comment-bubble[data-ann-id="${newAnn.id}"]`);
+          if (bubble) {
+            openInlineEditor(newAnn.id, bubble);
+          } else {
+            // Fallback: se o balão não foi criado (por algum motivo), usa prompt
+            const text = prompt('Digite seu comentário:');
+            if (text !== null) {
+              const ann = annotations.find(a => a.id === newAnn.id);
+              if (ann) {
+                ann.commentText = text;
+                redrawAnnotations();
+                updateSidebar();
+                saveAnnotationsToStorage();
+              }
+            }
+          }
+        });
+      }
     }
 
     // ============================================================
@@ -566,6 +588,7 @@
         const svg = document.getElementById(`svgOverlay-${pageNum}`);
         if (!svg) continue;
 
+        // Desenha retângulos/SVG
         anns.forEach(ann => {
           ann.rects.forEach(r => {
             if (ann.type === 'highlight' || ann.type === 'comment') {
@@ -600,10 +623,11 @@
           });
         });
 
+        // Balões de comentário (para TODOS os comentários, mesmo com texto vazio)
         const wrapper = document.getElementById(`page-wrapper-${pageNum}`);
         if (!wrapper) continue;
 
-        const comments = anns.filter(a => a.type === 'comment' && a.commentText && a.commentText.trim() !== '');
+        const comments = anns.filter(a => a.type === 'comment');
         if (comments.length === 0) continue;
 
         comments.sort((a, b) => b.rects[0].y - a.rects[0].y);
@@ -638,9 +662,15 @@
 
           const textDiv = document.createElement('div');
           textDiv.className = 'cm-text';
-          textDiv.textContent = ann.commentText;
+          if (ann.commentText && ann.commentText.trim() !== '') {
+            textDiv.textContent = ann.commentText;
+          } else {
+            textDiv.textContent = 'Clique para editar';
+            textDiv.classList.add('placeholder');
+          }
           bubble.appendChild(textDiv);
 
+          // Botão editar
           const editBtn = document.createElement('button');
           editBtn.className = 'cm-edit-btn';
           editBtn.textContent = '✎';
@@ -648,6 +678,7 @@
           editBtn.onclick = (e) => { e.stopPropagation(); openInlineEditor(ann.id, bubble); };
           bubble.appendChild(editBtn);
 
+          // Botão deletar
           const delBtn = document.createElement('button');
           delBtn.className = 'cm-delete-btn';
           delBtn.textContent = '✕';
@@ -691,7 +722,24 @@
       const ann = annotations.find(a => a.id === annId);
       if (!ann) return;
 
+      // Remove editor anterior
       document.querySelectorAll('.comment-edit-area').forEach(el => el.remove());
+
+      // Se bubbleElement não for fornecido, tenta encontrar
+      if (!bubbleElement) {
+        bubbleElement = document.querySelector(`.comment-bubble[data-ann-id="${annId}"]`);
+        if (!bubbleElement) {
+          // Fallback: usar prompt
+          const newText = prompt('Editar comentário:', ann.commentText);
+          if (newText !== null) {
+            ann.commentText = newText;
+            redrawAnnotations();
+            updateSidebar();
+            saveAnnotationsToStorage();
+          }
+          return;
+        }
+      }
 
       const editArea = document.createElement('div');
       editArea.className = 'comment-edit-area';
@@ -740,7 +788,7 @@
       container.innerHTML = '';
 
       if (annotations.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>';
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta, depois selecione o texto no PDF para marcar.</p>';
         return;
       }
 
@@ -892,6 +940,7 @@
                 });
               });
 
+              // Se não houver texto, ainda assim desenha um balão vazio? Para o PDF final, ignoramos comentários vazios.
               if (!ann.commentText || ann.commentText.trim() === '') return;
 
               const boxPadding = 8;

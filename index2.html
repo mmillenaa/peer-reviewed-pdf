@@ -11,6 +11,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
   <style>
+    /* Estilos para a Camada de Texto invisível */
     .pdf-page-wrapper {
       position: relative;
       display: inline-block;
@@ -25,9 +26,9 @@
       position: absolute;
       left: 0; top: 0; right: 0; bottom: 0;
       overflow: hidden;
-      opacity: 0.2;
+      opacity: 0.2; /* Deixe em 0 na versão de produção para esconder totalmente */
       line-height: 1.0;
-      --scale-factor: 1.3;
+      --scale-factor: 1.3; /* Variável adicionada para remover o aviso do console */
     }
     .textLayer ::selection {
       background: rgba(0, 0, 255, 0.3);
@@ -46,75 +47,14 @@
       pointer-events: none;
     }
     
+    /* Scrollbar customizada para o painel principal */
     #scrollContainer::-webkit-scrollbar { width: 10px; }
     #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
     #scrollContainer::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
     #scrollContainer::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-
-    /* Estilos do Popup de Seleção */
-    #selectionPopup {
-      position: absolute;
-      background: white;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      border-radius: 0.5rem;
-      display: none;
-      z-index: 1000;
-      flex-direction: column;
-      overflow: hidden;
-      width: max-content;
-    }
-    .popup-row {
-      display: flex;
-      align-items: center;
-      padding: 4px;
-    }
-    .popup-row.bottom-row {
-      border-top: 1px solid #f3f4f6;
-      padding: 6px 8px;
-    }
-    .popup-btn {
-      padding: 8px 12px;
-      cursor: pointer;
-      color: #4b5563;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 0.375rem;
-    }
-    .popup-btn:hover {
-      background-color: #f3f4f6;
-      color: #111827;
-    }
-    .popup-btn svg { width: 18px; height: 18px; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-all duration-300" id="mainBody">
-
-  <!-- Popup de Ferramentas ao Selecionar Texto -->
-  <div id="selectionPopup">
-    <div class="popup-row gap-1">
-      <button class="popup-btn" onclick="applyAnnotation('comment')" title="Comentar">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-      </button>
-      <button class="popup-btn" onclick="applyAnnotation('highlight')" title="Grifar">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-      </button>
-      <button class="popup-btn" onclick="applyAnnotation('underline')" title="Sublinhar">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M12 16V4m-4 0h8"></path></svg>
-      </button>
-      <button class="popup-btn" onclick="applyAnnotation('strike')" title="Tachar">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M9 4v4m6-4v4m-3 4v8"></path></svg>
-      </button>
-    </div>
-    <div class="popup-row bottom-row">
-      <button class="popup-btn text-sm w-full" onclick="applyAnnotation('copy')">
-        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-        Copy text
-      </button>
-    </div>
-  </div>
 
   <!-- TELA INICIAL -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
@@ -170,18 +110,19 @@
 
   <!-- WORKSPACE DE REVISÃO -->
   <div id="workspace" class="max-w-[95%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
+    
     <!-- Visualizador Central -->
     <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
         <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500 ml-2">Selecione um texto para abrir as ferramentas. Use <b>Ctrl + F</b> para buscar.</span>
+          <span class="text-xs text-gray-500 ml-2">Dica: use <b>Ctrl + F</b> para buscar no texto.</span>
         </div>
         <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
       </div>
       
       <!-- Container com Scroll -->
       <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
-        <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full relative">
+        <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full">
           <!-- Páginas serão geradas dinamicamente aqui -->
         </div>
       </div>
@@ -189,18 +130,30 @@
 
     <!-- Painel Lateral -->
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
+      
       <div class="p-5 border-b border-gray-100 bg-gray-50">
-        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Cor para grifar e sublinhar</span>
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Ferramentas</span>
+          <button onclick="clearTool()" class="text-[10px] text-gray-500 hover:text-red-500 underline">Desativar ferramentas</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <button onclick="setTool('highlight')" id="tool-highlight" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Grifar</button>
+          <button onclick="setTool('comment')" id="tool-comment" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Comentar</button>
+          <button onclick="setTool('underline')" id="tool-underline" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Sublinhar</button>
+          <button onclick="setTool('strike')" id="tool-strike" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Tachar</button>
+        </div>
+        
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Cor da Marcação</span>
         <div class="flex gap-3">
-          <button onclick="setColor('#fef08a', [0.99, 0.94, 0.54], this)" class="color-btn w-7 h-7 rounded-full bg-yellow-200 border-2 border-yellow-400 focus:outline-none transition-all ring-2 ring-offset-2 ring-yellow-400"></button>
-          <button onclick="setColor('#bbf7d0', [0.73, 0.97, 0.82], this)" class="color-btn w-7 h-7 rounded-full bg-green-200 border-2 border-green-300 focus:outline-none transition-all"></button>
-          <button onclick="setColor('#bfdbfe', [0.75, 0.86, 0.99], this)" class="color-btn w-7 h-7 rounded-full bg-blue-200 border-2 border-blue-300 focus:outline-none transition-all"></button>
-          <button onclick="setColor('#fecaca', [0.99, 0.79, 0.79], this)" class="color-btn w-7 h-7 rounded-full bg-red-200 border-2 border-red-300 focus:outline-none transition-all"></button>
+          <button onclick="setColor('#fef08a', [0.99, 0.94, 0.54])" class="w-7 h-7 rounded-full bg-yellow-200 border-2 border-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all"></button>
+          <button onclick="setColor('#bbf7d0', [0.73, 0.97, 0.82])" class="w-7 h-7 rounded-full bg-green-200 border-2 border-green-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all"></button>
+          <button onclick="setColor('#bfdbfe', [0.75, 0.86, 0.99])" class="w-7 h-7 rounded-full bg-blue-200 border-2 border-blue-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all"></button>
+          <button onclick="setColor('#fecaca', [0.99, 0.79, 0.79])" class="w-7 h-7 rounded-full bg-red-200 border-2 border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-all"></button>
         </div>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
-        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF para marcar e comentar.</p>
+        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>
       </div>
 
       <div class="p-4 border-t border-gray-100 bg-white">
@@ -215,17 +168,17 @@
     let rawFileBuffer = null;
     let fileName = "";
     
+    // Controle do PDF
     let pdfjsDoc = null;
-    let pdfWasNumbered = false; 
+    let pdfLibDoc = null;
     
+    // Estado da Interface - Inicia como NULL (Nenhuma ferramenta selecionada)
+    let activeTool = null; 
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
-    let annotations = []; 
+    let annotations = []; // Histórico
     let scale = 1.3;
-    let commentCounter = 1; 
-
-    // Variável para armazenar a seleção temporária
-    let currentSelectionData = null;
+    let commentCounter = 1; // Para numerar [CM1], [CM2]
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
@@ -247,6 +200,7 @@
       el.className = `text-xs font-medium mt-4 h-4 ${isError ? 'text-red-600' : 'text-gray-500'}`;
     }
 
+    // --- LÓGICA DE START ---
     async function startProcess(mode) {
       if (!rawFileBuffer) return;
       setStatus("Processando documento...");
@@ -256,9 +210,6 @@
 
         if (mode === 'number' || mode === 'both') {
           bufferToLoad = await applyNumbering(bufferToLoad);
-          pdfWasNumbered = true;
-        } else {
-          pdfWasNumbered = false;
         }
 
         if (mode === 'number') {
@@ -268,6 +219,7 @@
           return;
         }
 
+        pdfLibDoc = await PDFLib.PDFDocument.load(bufferToLoad);
         pdfjsDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
         
         document.getElementById('startScreen').classList.add('hidden');
@@ -286,6 +238,7 @@
       }
     }
 
+    // --- NUMERAÇÃO DE LINHAS (EM VERMELHO) ---
     async function applyNumbering(buffer) {
       const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
@@ -326,6 +279,7 @@
       return await tempLibDoc.save();
     }
 
+    // --- RENDERIZAÇÃO DE TODAS AS PÁGINAS ---
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = ''; 
@@ -379,22 +333,38 @@
       redrawAnnotations();
     }
 
-    function setColor(hex, rgb, btnElement) {
-      activeColorHex = hex;
-      activeColorRGB = rgb;
-      document.querySelectorAll('.color-btn').forEach(btn => {
-        btn.classList.remove('ring-2', 'ring-offset-2', 'ring-yellow-400', 'ring-green-400', 'ring-blue-400', 'ring-red-400');
+    function setTool(tool) {
+      activeTool = tool;
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+        btn.classList.add('bg-white', 'border-gray-200', 'text-gray-600');
       });
-      if(hex === '#fef08a') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-yellow-400');
-      if(hex === '#bbf7d0') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-green-400');
-      if(hex === '#bfdbfe') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
-      if(hex === '#fecaca') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-red-400');
+      const activeBtn = document.getElementById(`tool-${tool}`);
+      if(activeBtn) {
+        activeBtn.classList.remove('bg-white', 'border-gray-200', 'text-gray-600');
+        activeBtn.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+      }
     }
 
+    function clearTool() {
+      activeTool = null;
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700', 'shadow-inner');
+        btn.classList.add('bg-white', 'border-gray-200', 'text-gray-600');
+      });
+    }
+
+    function setColor(hex, rgb) {
+      activeColorHex = hex;
+      activeColorRGB = rgb;
+    }
+
+    // --- CAPTURA DE TEXTO COM VERIFICAÇÃO DE FERRAMENTA ---
     function handleTextSelection(e) {
       const selection = window.getSelection();
-      if (selection.isCollapsed) {
-        document.getElementById('selectionPopup').style.display = 'none';
+      if (selection.isCollapsed) return;
+
+      if (!activeTool) {
         return;
       }
 
@@ -415,58 +385,27 @@
       }
 
       if (capturedRects.length > 0) {
-        currentSelectionData = {
+        const isComment = activeTool === 'comment';
+        annotations.push({
+          id: Date.now(),
+          type: activeTool,
           page: pageNum,
           rects: capturedRects,
-          text: selection.toString()
-        };
-
-        const popup = document.getElementById('selectionPopup');
-        popup.style.left = e.pageX + 'px';
-        popup.style.top = (e.pageY - 60) + 'px';
-        popup.style.display = 'flex';
-      }
-    }
-
-    // Fechar popup se clicar fora
-    document.addEventListener('mousedown', function(e) {
-      const popup = document.getElementById('selectionPopup');
-      if (popup.style.display === 'flex' && !popup.contains(e.target) && e.target.className !== 'textLayer') {
-         popup.style.display = 'none';
-      }
-    });
-
-    function applyAnnotation(type) {
-      if (!currentSelectionData) return;
-
-      if (type === 'copy') {
-        navigator.clipboard.writeText(currentSelectionData.text);
-        document.getElementById('selectionPopup').style.display = 'none';
-        window.getSelection().removeAllRanges();
-        return;
+          colorHex: activeColorHex,
+          colorRGB: activeColorRGB,
+          text: selection.toString(),
+          commentText: '', 
+          cmIndex: isComment ? commentCounter++ : null,
+          isEditing: isComment 
+        });
       }
 
-      annotations.push({
-        id: Date.now(),
-        type: type,
-        page: currentSelectionData.page,
-        rects: currentSelectionData.rects,
-        colorHex: activeColorHex,
-        colorRGB: activeColorRGB,
-        text: currentSelectionData.text,
-        commentText: '', 
-        cmIndex: commentCounter++, 
-        isEditing: true // Abre edição imediatamente no sidebar
-      });
-
-      document.getElementById('selectionPopup').style.display = 'none';
-      window.getSelection().removeAllRanges();
-      currentSelectionData = null;
-
+      selection.removeAllRanges();
       redrawAnnotations();
       updateSidebar();
     }
 
+    // --- DESENHO NO BROWSER ---
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
 
@@ -507,12 +446,13 @@
       });
     }
 
+    // --- SIDEBAR E ESTADOS DE EDIÇÃO ---
     function updateSidebar() {
       const container = document.getElementById('sidebarList');
       container.innerHTML = '';
 
       if (annotations.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF para marcar e comentar.</p>';
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>';
         return;
       }
 
@@ -520,34 +460,32 @@
         const item = document.createElement('div');
         item.className = "bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm";
         
-        let typeLabel = "Anotação";
-        if (ann.type === 'comment') typeLabel = "Comentário isolado";
-        if (ann.type === 'highlight') typeLabel = "Grifo";
-        if (ann.type === 'underline') typeLabel = "Sublinhado";
-        if (ann.type === 'strike') typeLabel = "Tachado";
-
-        const snippet = ann.text.length > 50 ? ann.text.substring(0, 50) + "..." : ann.text;
-
+        const typeLabel = ann.type === 'comment' ? `[CM${ann.cmIndex}] Comentário` : ann.type === 'highlight' ? 'Grifo' : ann.type === 'underline' ? 'Sublinhado' : 'Tachado';
+        
         let html = `
           <div class="flex justify-between items-center mb-2">
-            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">[CM${ann.cmIndex}] ${typeLabel} <span class="font-normal normal-case text-gray-400 ml-1">(Pág. ${ann.page})</span></span>
+            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">${typeLabel} <span class="font-normal normal-case text-gray-400 ml-1">(Pág. ${ann.page})</span></span>
             <button onclick="removeAnnotation(${ann.id})" class="text-gray-400 hover:text-red-600 transition-colors" title="Excluir">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </button>
           </div>
-          <div class="text-gray-500 text-xs border-l-2 border-gray-300 pl-2 italic mb-3">"${snippet}"</div>
         `;
 
-        if (ann.isEditing) {
-          html += `
-            <textarea id="textarea-${ann.id}" maxlength="6087" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="Adicione seu comentário...">${ann.commentText}</textarea>
-            <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar comentário</button>
-          `;
+        if (ann.type === 'comment') {
+          if (ann.isEditing) {
+            html += `
+              <textarea id="textarea-${ann.id}" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="Digite seu comentário...">${ann.commentText}</textarea>
+              <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar comentário</button>
+            `;
+          } else {
+            html += `
+              <div class="text-sm text-gray-800 bg-white border border-gray-100 p-3 rounded-lg mb-2 shadow-sm">${ann.commentText || '<i class="text-gray-400">Vazio</i>'}</div>
+              <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
+            `;
+          }
         } else {
-          html += `
-            <div class="text-sm text-gray-800 bg-white border border-gray-100 p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap">${ann.commentText || '<i class="text-gray-400 text-xs">Sem comentário adicional</i>'}</div>
-            <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
-          `;
+          const snippet = ann.text.length > 50 ? ann.text.substring(0, 50) + "..." : ann.text;
+          html += `<div class="text-gray-500 text-xs border-l-2 border-gray-300 pl-2 italic mt-2">"${snippet}"</div>`;
         }
 
         item.innerHTML = html;
@@ -578,6 +516,7 @@
       updateSidebar();
     };
 
+    // --- FUNÇÃO ATUALIZADA PARA RESOLVER O ERRO DO \n (ENTER) ---
     function splitTextToLines(text, maxWidth, font, fontSize) {
       const rawLines = text.split('\n'); 
       let finalLines = [];
@@ -587,6 +526,7 @@
           finalLines.push('');
           return;
         }
+
         const words = rawLine.split(' ');
         let currentLine = words[0] || '';
         
@@ -603,108 +543,129 @@
         }
         finalLines.push(currentLine);
       });
+
       return finalLines;
     }
 
+    // --- EXPORTAÇÃO ---
     async function downloadFinalPDF() {
-      let bufferToExport = rawFileBuffer.slice(0);
+      const pages = pdfLibDoc.getPages();
+      const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      const fontBold = await pdfLibDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
       
-      if (pdfWasNumbered) {
-        bufferToExport = await applyNumbering(bufferToExport);
-      }
-
-      const freshPdfLibDoc = await PDFLib.PDFDocument.load(bufferToExport);
-      const pages = freshPdfLibDoc.getPages();
-      const font = await freshPdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-      const fontBold = await freshPdfLibDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-      
-      // Expansão da largura da página
-      const EXTRA_MARGIN_WIDTH = 350;
+      const EXTRA_MARGIN_WIDTH = 250;
 
       for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
         const page = pages[pageIdx];
         const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
         const { width: originalWidth, height: pageHeight } = page.getSize();
         
-        const annotationsWithComments = pageAnns.filter(a => a.commentText && a.commentText.trim() !== '');
+        const comments = pageAnns.filter(a => a.type === 'comment');
         
-        if (annotationsWithComments.length > 0) {
+        if (comments.length > 0) {
           page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
           page.drawRectangle({ x: originalWidth, y: 0, width: EXTRA_MARGIN_WIDTH, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
         }
 
-        // Ordenando anotações para renderização de cima para baixo
-        pageAnns.sort((a, b) => a.rects[0].y - b.rects[0].y);
-
         let nextAvailableY = pageHeight - 20; 
+
+        comments.sort((a, b) => b.rects[0].y - a.rects[0].y);
 
         pageAnns.forEach(ann => {
           const [r, g, b] = ann.colorRGB;
-          let maxRightX = 0; 
-          let basePdfY = 0;
 
-          ann.rects.forEach(rect => {
-            const pdfX = rect.x / scale;
-            const pdfY = pageHeight - (rect.y / scale);
-            const pdfW = rect.w / scale;
-            const pdfH = rect.h / scale;
-            
-            if ((pdfX + pdfW) > maxRightX) {
-              maxRightX = pdfX + pdfW;
-              basePdfY = pdfY - (pdfH / 2); 
-            }
+          if (ann.type === 'comment') {
+            let maxRightX = 0; 
+            let basePdfY = 0;
 
-            if (ann.type === 'comment') {
-              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
-            } else if (ann.type === 'highlight') {
-              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.45 });
-            } else if (ann.type === 'underline') {
-              page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(r, g, b) });
-            } else if (ann.type === 'strike') {
-              page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
-            }
-          });
+            ann.rects.forEach(rect => {
+              const pdfX = rect.x / scale;
+              const pdfY = pageHeight - (rect.y / scale);
+              const pdfW = rect.w / scale;
+              const pdfH = rect.h / scale;
+              
+              if ((pdfX + pdfW) > maxRightX) {
+                maxRightX = pdfX + pdfW;
+                basePdfY = pdfY - (pdfH / 2); 
+              }
+              
+              page.drawRectangle({
+                x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH,
+                color: PDFLib.rgb(1, 0.9, 0.9),
+                borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
+                borderWidth: 1,
+                opacity: 0.4,
+                borderOpacity: 0.8
+              });
+            });
 
-          if (ann.commentText && ann.commentText.trim() !== '') {
             const boxPadding = 8;
             const boxMarginLeft = 20;
             const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;
             
             const title = `Commented [CM${ann.cmIndex}]: `;
+            const lines = splitTextToLines(ann.commentText, contentWidth, font, 9);
             
-            // Redução do tamanho da fonte para PDF
-            const fontSize = 7;
-            const lineHeight = 10;
-            
-            const lines = splitTextToLines(ann.commentText, contentWidth, font, fontSize);
-            
-            const textHeight = (lines.length + 1) * lineHeight; 
+            const textHeight = (lines.length + 1) * 12; 
             const boxHeight = textHeight + (boxPadding * 2);
             
-            // Começa as caixas no topo independentemente da altura do texto
-            let targetY = nextAvailableY; 
+            let targetY = basePdfY + (boxHeight / 2);
+            if (targetY > nextAvailableY) {
+              targetY = nextAvailableY; 
+            }
             nextAvailableY = targetY - boxHeight - 10; 
 
             const boxLeftX = originalWidth + boxMarginLeft;
             const boxBottomY = targetY - boxHeight;
 
-            // Linha conectando o texto ao box
-            page.drawLine({ start: { x: maxRightX, y: basePdfY }, end: { x: boxLeftX, y: targetY - (boxHeight / 2) }, thickness: 1, color: PDFLib.rgb(0.5, 0.5, 0.5) });
-            page.drawRectangle({ x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight, color: PDFLib.rgb(1, 1, 1), borderColor: PDFLib.rgb(0.6, 0.6, 0.6), borderWidth: 1 });
+            page.drawLine({
+              start: { x: maxRightX, y: basePdfY },
+              end: { x: boxLeftX, y: targetY - (boxHeight / 2) },
+              thickness: 1,
+              color: PDFLib.rgb(0.8, 0.2, 0.2) 
+            });
 
-            // Desenhando os textos do box
-            page.drawText(title, { x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - fontSize, size: fontSize, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1) });
+            page.drawRectangle({
+              x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight,
+              color: PDFLib.rgb(1, 1, 1), 
+              borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
+              borderWidth: 1
+            });
 
-            let currentTextY = boxBottomY + boxHeight - boxPadding - fontSize - lineHeight;
+            page.drawText(title, {
+              x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - 9,
+              size: 9, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1)
+            });
+
+            let currentTextY = boxBottomY + boxHeight - boxPadding - 21;
             lines.forEach(line => {
-              page.drawText(line, { x: boxLeftX + boxPadding, y: currentTextY, size: fontSize, font: font, color: PDFLib.rgb(0.2, 0.2, 0.2) });
-              currentTextY -= lineHeight;
+              page.drawText(line, {
+                x: boxLeftX + boxPadding, y: currentTextY,
+                size: 9, font: font, color: PDFLib.rgb(0.2, 0.2, 0.2)
+              });
+              currentTextY -= 12;
+            });
+
+          } else {
+            ann.rects.forEach(rect => {
+              const pdfX = rect.x / scale;
+              const pdfY = pageHeight - (rect.y / scale);
+              const pdfW = rect.w / scale;
+              const pdfH = rect.h / scale;
+
+              if (ann.type === 'highlight') {
+                page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.45 });
+              } else if (ann.type === 'underline') {
+                page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(r, g, b) });
+              } else if (ann.type === 'strike') {
+                page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
+              }
             });
           }
         });
       }
 
-      const finalBytes = await freshPdfLibDoc.save();
+      const finalBytes = await pdfLibDoc.save();
       const blob = new Blob([finalBytes], { type: 'application/pdf' });
       triggerDownload(blob, fileName.replace('.pdf', '_revisado.pdf'));
     }
@@ -713,9 +674,7 @@
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = outputName;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
     }
   </script>
 </body>

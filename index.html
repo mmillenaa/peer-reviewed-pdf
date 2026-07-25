@@ -94,20 +94,6 @@
       color: #9ca3af;
       font-style: italic;
     }
-    .comment-bubble .cm-edit-btn {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: #f3f4f6;
-      border: none;
-      border-radius: 4px;
-      font-size: 8px;
-      padding: 2px 6px;
-      cursor: pointer;
-      color: #4b5563;
-      transition: 0.2s;
-    }
-    .comment-bubble .cm-edit-btn:hover { background: #e5e7eb; }
     .comment-bubble .cm-delete-btn {
       position: absolute;
       bottom: 4px;
@@ -130,46 +116,6 @@
       pointer-events: none;
       overflow: visible;
     }
-
-    .comment-edit-area {
-      position: absolute;
-      background: white;
-      border: 2px solid #3b82f6;
-      border-radius: 8px;
-      padding: 6px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-      z-index: 20;
-      width: 200px;
-      pointer-events: auto;
-    }
-    .comment-edit-area textarea {
-      width: 100%;
-      border: none;
-      outline: none;
-      resize: vertical;
-      font-size: 9px;
-      padding: 4px;
-      min-height: 60px;
-      font-family: inherit;
-    }
-    .comment-edit-area .edit-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 6px;
-      margin-top: 4px;
-    }
-    .comment-edit-area .edit-actions button {
-      font-size: 8px;
-      padding: 2px 10px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .comment-edit-area .edit-actions .save-btn { background: #3b82f6; color: white; }
-    .comment-edit-area .edit-actions .save-btn:hover { background: #2563eb; }
-    .comment-edit-area .edit-actions .cancel-btn { background: #e5e7eb; color: #374151; }
-    .comment-edit-area .edit-actions .cancel-btn:hover { background: #d1d5db; }
 
     #scrollContainer::-webkit-scrollbar { width: 8px; }
     #scrollContainer::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 4px; }
@@ -547,27 +493,25 @@
       redrawAnnotations();
       updateSidebar();
 
-      // Se for comentário, abre o editor automaticamente
+      // Se for comentário, abre prompt para digitar
       if (isComment) {
-        // Aguarda o DOM atualizar e abre o editor no balão
-        requestAnimationFrame(() => {
-          const bubble = document.querySelector(`.comment-bubble[data-ann-id="${newAnn.id}"]`);
-          if (bubble) {
-            openInlineEditor(newAnn.id, bubble);
-          } else {
-            // Fallback: se o balão não foi criado (por algum motivo), usa prompt
-            const text = prompt('Digite seu comentário:');
-            if (text !== null) {
-              const ann = annotations.find(a => a.id === newAnn.id);
-              if (ann) {
-                ann.commentText = text;
-                redrawAnnotations();
-                updateSidebar();
-                saveAnnotationsToStorage();
-              }
+        // Aguarda um pouco para o DOM atualizar
+        setTimeout(() => {
+          const commentText = prompt('Digite seu comentário:');
+          if (commentText !== null) {
+            const ann = annotations.find(a => a.id === newAnn.id);
+            if (ann) {
+              ann.commentText = commentText;
+              redrawAnnotations();
+              updateSidebar();
+              saveAnnotationsToStorage();
             }
+          } else {
+            // Se cancelar, remove o comentário?
+            // Vamos remover para não deixar vazio
+            removeAnnotation(newAnn.id);
           }
-        });
+        }, 100);
       }
     }
 
@@ -576,7 +520,7 @@
     // ============================================================
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer svg').forEach(svg => svg.innerHTML = '');
-      document.querySelectorAll('.comment-bubble, .comment-connector-svg, .comment-edit-area').forEach(el => el.remove());
+      document.querySelectorAll('.comment-bubble, .comment-connector-svg').forEach(el => el.remove());
 
       const annByPage = {};
       annotations.forEach(ann => {
@@ -623,11 +567,11 @@
           });
         });
 
-        // Balões de comentário (para TODOS os comentários, mesmo com texto vazio)
+        // Balões de comentário (apenas se tiver texto)
         const wrapper = document.getElementById(`page-wrapper-${pageNum}`);
         if (!wrapper) continue;
 
-        const comments = anns.filter(a => a.type === 'comment');
+        const comments = anns.filter(a => a.type === 'comment' && a.commentText && a.commentText.trim() !== '');
         if (comments.length === 0) continue;
 
         comments.sort((a, b) => b.rects[0].y - a.rects[0].y);
@@ -662,23 +606,10 @@
 
           const textDiv = document.createElement('div');
           textDiv.className = 'cm-text';
-          if (ann.commentText && ann.commentText.trim() !== '') {
-            textDiv.textContent = ann.commentText;
-          } else {
-            textDiv.textContent = 'Clique para editar';
-            textDiv.classList.add('placeholder');
-          }
+          textDiv.textContent = ann.commentText;
           bubble.appendChild(textDiv);
 
-          // Botão editar
-          const editBtn = document.createElement('button');
-          editBtn.className = 'cm-edit-btn';
-          editBtn.textContent = '✎';
-          editBtn.title = 'Editar';
-          editBtn.onclick = (e) => { e.stopPropagation(); openInlineEditor(ann.id, bubble); };
-          bubble.appendChild(editBtn);
-
-          // Botão deletar
+          // Botão deletar no balão
           const delBtn = document.createElement('button');
           delBtn.className = 'cm-delete-btn';
           delBtn.textContent = '✕';
@@ -713,71 +644,6 @@
       }
 
       document.getElementById('annotationCount').textContent = annotations.length;
-    }
-
-    // ============================================================
-    //  EDITOR INLINE
-    // ============================================================
-    function openInlineEditor(annId, bubbleElement) {
-      const ann = annotations.find(a => a.id === annId);
-      if (!ann) return;
-
-      // Remove editor anterior
-      document.querySelectorAll('.comment-edit-area').forEach(el => el.remove());
-
-      // Se bubbleElement não for fornecido, tenta encontrar
-      if (!bubbleElement) {
-        bubbleElement = document.querySelector(`.comment-bubble[data-ann-id="${annId}"]`);
-        if (!bubbleElement) {
-          // Fallback: usar prompt
-          const newText = prompt('Editar comentário:', ann.commentText);
-          if (newText !== null) {
-            ann.commentText = newText;
-            redrawAnnotations();
-            updateSidebar();
-            saveAnnotationsToStorage();
-          }
-          return;
-        }
-      }
-
-      const editArea = document.createElement('div');
-      editArea.className = 'comment-edit-area';
-      const rect = bubbleElement.getBoundingClientRect();
-      const wrapperRect = bubbleElement.closest('.pdf-page-wrapper').getBoundingClientRect();
-      editArea.style.left = `${rect.left - wrapperRect.left}px`;
-      editArea.style.top = `${rect.top - wrapperRect.top - 10}px`;
-
-      const textarea = document.createElement('textarea');
-      textarea.value = ann.commentText;
-      textarea.placeholder = 'Digite seu comentário...';
-      editArea.appendChild(textarea);
-
-      const actions = document.createElement('div');
-      actions.className = 'edit-actions';
-
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'save-btn';
-      saveBtn.textContent = 'Salvar';
-      saveBtn.onclick = () => {
-        ann.commentText = textarea.value;
-        editArea.remove();
-        redrawAnnotations();
-        updateSidebar();
-        saveAnnotationsToStorage();
-      };
-      actions.appendChild(saveBtn);
-
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'cancel-btn';
-      cancelBtn.textContent = 'Cancelar';
-      cancelBtn.onclick = () => { editArea.remove(); };
-      actions.appendChild(cancelBtn);
-
-      editArea.appendChild(actions);
-      bubbleElement.closest('.pdf-page-wrapper').appendChild(editArea);
-      textarea.focus();
-      textarea.select();
     }
 
     // ============================================================
@@ -849,17 +715,12 @@
     function editCommentFromSidebar(id) {
       const ann = annotations.find(a => a.id === id);
       if (!ann || ann.type !== 'comment') return;
-      const bubble = document.querySelector(`.comment-bubble[data-ann-id="${id}"]`);
-      if (bubble) {
-        openInlineEditor(id, bubble);
-      } else {
-        const newText = prompt('Editar comentário:', ann.commentText);
-        if (newText !== null) {
-          ann.commentText = newText;
-          redrawAnnotations();
-          updateSidebar();
-          saveAnnotationsToStorage();
-        }
+      const newText = prompt('Editar comentário:', ann.commentText);
+      if (newText !== null) {
+        ann.commentText = newText;
+        redrawAnnotations();
+        updateSidebar();
+        saveAnnotationsToStorage();
       }
     }
 
@@ -902,7 +763,7 @@
           const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
           const { width: originalWidth, height: pageHeight } = page.getSize();
 
-          const comments = pageAnns.filter(a => a.type === 'comment');
+          const comments = pageAnns.filter(a => a.type === 'comment' && a.commentText && a.commentText.trim() !== '');
 
           if (comments.length > 0) {
             page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
@@ -916,6 +777,9 @@
             const [r, g, b] = ann.colorRGB;
 
             if (ann.type === 'comment') {
+              // Só desenha balão se tiver texto
+              if (!ann.commentText || ann.commentText.trim() === '') return;
+
               let maxRightX = 0;
               let basePdfY = 0;
 
@@ -939,9 +803,6 @@
                   borderOpacity: 0.8
                 });
               });
-
-              // Se não houver texto, ainda assim desenha um balão vazio? Para o PDF final, ignoramos comentários vazios.
-              if (!ann.commentText || ann.commentText.trim() === '') return;
 
               const boxPadding = 8;
               const boxMarginLeft = 20;

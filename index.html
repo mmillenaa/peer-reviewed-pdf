@@ -19,16 +19,20 @@
       margin-bottom: 20px;
       background: white;
     }
-    canvas { display: block; }
+    canvas {
+      display: block;
+    }
     .textLayer {
       position: absolute;
       left: 0; top: 0; right: 0; bottom: 0;
       overflow: hidden;
-      opacity: 0.2; /* Em produção mude para 0 para não atrapalhar a visão */
+      opacity: 0.2; /* Deixe em 0 na versão de produção para esconder totalmente */
       line-height: 1.0;
-      --scale-factor: 1.3;
+      --scale-factor: 1.3; /* Variável adicionada para remover o aviso do console */
     }
-    .textLayer ::selection { background: rgba(0, 0, 255, 0.3); }
+    .textLayer ::selection {
+      background: rgba(0, 0, 255, 0.3);
+    }
     .textLayer span {
       color: transparent;
       position: absolute;
@@ -42,7 +46,8 @@
       width: 100%; height: 100%;
       pointer-events: none;
     }
-    /* Scrollbar customizada */
+    
+    /* Scrollbar customizada para o painel principal */
     #scrollContainer::-webkit-scrollbar { width: 10px; }
     #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
     #scrollContainer::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
@@ -53,9 +58,11 @@
 
   <!-- TELA INICIAL -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
+    
     <img src="logo.png" alt="Logo" class="h-20 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
+    
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
-    <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento.</p>
+    <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
     <div class="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-400 transition-colors bg-gray-50/50">
       <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
@@ -80,37 +87,54 @@
 
     <!-- RODAPÉ - MILLENA FRANCO -->
     <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
-      <p class="text-xs text-gray-500">Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a></p>
+      <p class="text-xs text-gray-500">
+        Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
+      </p>
+      
       <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
         <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 transition-colors">
-          <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain"> CV Lattes
+          <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain">
+          CV Lattes
         </a>
         <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 transition-colors">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain"> ORCID
+          <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain">
+          ORCID
+        </a>
+        <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 transition-colors">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_BV_FAPESP.jpg" alt="BV FAPESP" class="h-4 w-auto rounded-sm object-contain">
+          BV FAPESP
         </a>
       </div>
     </div>
   </div>
 
   <!-- WORKSPACE DE REVISÃO -->
-  <div id="workspace" class="max-w-[98%] w-full grid-cols-1 lg:grid-cols-4 gap-6 hidden">
+  <div id="workspace" class="max-w-[95%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
+    
     <!-- Visualizador Central -->
-    <div class="lg:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
+    <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
-        <span class="text-xs text-gray-500 ml-2">Dica: use <b>Ctrl + F</b> para buscar.</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-500 ml-2">Dica: use <b>Ctrl + F</b> para buscar no texto.</span>
+        </div>
         <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
       </div>
-      <div class="flex-1 overflow-auto p-4 md:p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
-        <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full"></div>
+      
+      <!-- Container com Scroll -->
+      <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
+        <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full">
+          <!-- Páginas serão geradas dinamicamente aqui -->
+        </div>
       </div>
     </div>
 
     <!-- Painel Lateral -->
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
+      
       <div class="p-5 border-b border-gray-100 bg-gray-50">
         <div class="flex justify-between items-center mb-3">
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Ferramentas</span>
-          <button onclick="clearTool()" class="text-[10px] text-gray-500 hover:text-red-500 underline">Desativar</button>
+          <button onclick="clearTool()" class="text-[10px] text-gray-500 hover:text-red-500 underline">Desativar ferramentas</button>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-4">
           <button onclick="setTool('highlight')" id="tool-highlight" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Grifar</button>
@@ -118,21 +142,22 @@
           <button onclick="setTool('underline')" id="tool-underline" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Sublinhar</button>
           <button onclick="setTool('strike')" id="tool-strike" class="tool-btn py-2 rounded-lg text-xs font-semibold border bg-white border-gray-200 text-gray-600 transition-all">Tachar</button>
         </div>
+        
         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Cor da Marcação</span>
         <div class="flex gap-3">
-          <button onclick="setColor('#fef08a', [0.99, 0.94, 0.54])" class="w-7 h-7 rounded-full bg-yellow-200 border-2 border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all"></button>
-          <button onclick="setColor('#bbf7d0', [0.73, 0.97, 0.82])" class="w-7 h-7 rounded-full bg-green-200 border-2 border-green-300 focus:outline-none focus:ring-2 focus:ring-green-400 transition-all"></button>
-          <button onclick="setColor('#bfdbfe', [0.75, 0.86, 0.99])" class="w-7 h-7 rounded-full bg-blue-200 border-2 border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"></button>
-          <button onclick="setColor('#fecaca', [0.99, 0.79, 0.79])" class="w-7 h-7 rounded-full bg-red-200 border-2 border-red-300 focus:outline-none focus:ring-2 focus:ring-red-400 transition-all"></button>
+          <button onclick="setColor('#fef08a', [0.99, 0.94, 0.54])" class="w-7 h-7 rounded-full bg-yellow-200 border-2 border-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 transition-all"></button>
+          <button onclick="setColor('#bbf7d0', [0.73, 0.97, 0.82])" class="w-7 h-7 rounded-full bg-green-200 border-2 border-green-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all"></button>
+          <button onclick="setColor('#bfdbfe', [0.75, 0.86, 0.99])" class="w-7 h-7 rounded-full bg-blue-200 border-2 border-blue-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all"></button>
+          <button onclick="setColor('#fecaca', [0.99, 0.79, 0.79])" class="w-7 h-7 rounded-full bg-red-200 border-2 border-red-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-all"></button>
         </div>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
-        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF.</p>
+        <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>
       </div>
 
       <div class="p-4 border-t border-gray-100 bg-white">
-        <button id="downloadBtn" onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
+        <button onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
           ⬇️ Baixar PDF final
         </button>
       </div>
@@ -141,16 +166,19 @@
 
   <script>
     let rawFileBuffer = null;
-    let latestValidBuffer = null; // Buffer original ou numerado, sempre intacto
     let fileName = "";
     
+    // Controle do PDF
     let pdfjsDoc = null;
+    let pdfLibDoc = null;
+    
+    // Estado da Interface - Inicia como NULL (Nenhuma ferramenta selecionada)
     let activeTool = null; 
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
-    let annotations = [];
+    let annotations = []; // Histórico
     let scale = 1.3;
-    let commentCounter = 1;
+    let commentCounter = 1; // Para numerar [CM1], [CM2]
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
@@ -172,6 +200,7 @@
       el.className = `text-xs font-medium mt-4 h-4 ${isError ? 'text-red-600' : 'text-gray-500'}`;
     }
 
+    // --- LÓGICA DE START ---
     async function startProcess(mode) {
       if (!rawFileBuffer) return;
       setStatus("Processando documento...");
@@ -190,8 +219,8 @@
           return;
         }
 
-        latestValidBuffer = bufferToLoad; // Guarda o estado original para não quebrar no download
-        pdfjsDoc = await pdfjsLib.getDocument({ data: latestValidBuffer }).promise;
+        pdfLibDoc = await PDFLib.PDFDocument.load(bufferToLoad);
+        pdfjsDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
         
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('mainBody').classList.remove('justify-center');
@@ -209,13 +238,14 @@
       }
     }
 
+    // --- NUMERAÇÃO DE LINHAS (EM VERMELHO) ---
     async function applyNumbering(buffer) {
       const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
       const font = await tempLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
       const tolY = 4.0;
-      const margemX = 15;
+      const margemX = 20;
       let lineNumber = 1;
 
       for (let pageNum = 1; pageNum <= tempPdfjs.numPages; pageNum++) {
@@ -249,9 +279,11 @@
       return await tempLibDoc.save();
     }
 
+    // --- RENDERIZAÇÃO DE TODAS AS PÁGINAS ---
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = ''; 
+      
       document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} páginas`;
 
       for (let i = 1; i <= pdfjsDoc.numPages; i++) {
@@ -288,6 +320,7 @@
         await page.render({ canvasContext: context, viewport: viewport }).promise;
 
         const textContent = await page.getTextContent();
+        
         pdfjsLib.renderTextLayer({
           textContentSource: textContent,
           container: textLayer,
@@ -326,10 +359,14 @@
       activeColorRGB = rgb;
     }
 
+    // --- CAPTURA DE TEXTO COM VERIFICAÇÃO DE FERRAMENTA ---
     function handleTextSelection(e) {
       const selection = window.getSelection();
       if (selection.isCollapsed) return;
-      if (!activeTool) return;
+
+      if (!activeTool) {
+        return;
+      }
 
       const range = selection.getRangeAt(0);
       const rects = range.getClientRects();
@@ -368,6 +405,7 @@
       updateSidebar();
     }
 
+    // --- DESENHO NO BROWSER ---
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
 
@@ -380,6 +418,7 @@
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', r.x); rect.setAttribute('y', r.y);
             rect.setAttribute('width', r.w); rect.setAttribute('height', r.h);
+            
             if (ann.type === 'comment') {
               rect.setAttribute('fill', '#fee2e2'); 
               rect.setAttribute('opacity', '0.6');
@@ -407,18 +446,20 @@
       });
     }
 
+    // --- SIDEBAR E ESTADOS DE EDIÇÃO ---
     function updateSidebar() {
       const container = document.getElementById('sidebarList');
       container.innerHTML = '';
 
       if (annotations.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF.</p>';
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione uma ferramenta acima, depois selecione o texto no PDF para marcar.</p>';
         return;
       }
 
       annotations.forEach(ann => {
         const item = document.createElement('div');
         item.className = "bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm";
+        
         const typeLabel = ann.type === 'comment' ? `[CM${ann.cmIndex}] Comentário` : ann.type === 'highlight' ? 'Grifo' : ann.type === 'underline' ? 'Sublinhado' : 'Tachado';
         
         let html = `
@@ -433,7 +474,7 @@
         if (ann.type === 'comment') {
           if (ann.isEditing) {
             html += `
-              <textarea id="textarea-${ann.id}" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="Digite seu comentário...">${ann.commentText || ''}</textarea>
+              <textarea id="textarea-${ann.id}" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="Digite seu comentário...">${ann.commentText}</textarea>
               <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar comentário</button>
             `;
           } else {
@@ -463,210 +504,177 @@
 
     window.editComment = function(id) {
       const ann = annotations.find(a => a.id === id);
-      if(ann) { ann.isEditing = true; updateSidebar(); }
+      if(ann) {
+        ann.isEditing = true;
+        updateSidebar();
+      }
     };
 
     window.removeAnnotation = function(id) {
       annotations = annotations.filter(a => a.id !== id);
-      redrawAnnotations(); updateSidebar();
+      redrawAnnotations();
+      updateSidebar();
     };
 
+    // --- FUNÇÃO ATUALIZADA PARA RESOLVER O ERRO DO \n (ENTER) ---
     function splitTextToLines(text, maxWidth, font, fontSize) {
-      if (!text) return [];
       const rawLines = text.split('\n'); 
       let finalLines = [];
 
       rawLines.forEach(rawLine => {
-        if (rawLine.trim() === '') { finalLines.push(''); return; }
+        if (rawLine.trim() === '') {
+          finalLines.push('');
+          return;
+        }
+
         const words = rawLine.split(' ');
         let currentLine = words[0] || '';
         
         for (let i = 1; i < words.length; i++) {
           const word = words[i];
           const width = font.widthOfTextAtSize(currentLine + " " + word, fontSize);
-          if (width < maxWidth) currentLine += " " + word;
-          else { finalLines.push(currentLine); currentLine = word; }
+          
+          if (width < maxWidth) {
+            currentLine += " " + word;
+          } else {
+            finalLines.push(currentLine);
+            currentLine = word;
+          }
         }
         finalLines.push(currentLine);
       });
+
       return finalLines;
     }
 
+    // --- EXPORTAÇÃO ---
     async function downloadFinalPDF() {
-      const btn = document.getElementById('downloadBtn');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '⏳ Gerando arquivo...';
-      btn.disabled = true;
+      const pages = pdfLibDoc.getPages();
+      const font = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      const fontBold = await pdfLibDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+      
+      const EXTRA_MARGIN_WIDTH = 250;
 
-      try {
-        // Carrega uma instância FRESCA para não causar erros de estado corrompido ao tentar baixar 2 vezes
-        const docToExport = await PDFLib.PDFDocument.load(latestValidBuffer);
-        const pages = docToExport.getPages();
-        const font = await docToExport.embedFont(PDFLib.StandardFonts.Helvetica);
-        const fontBold = await docToExport.embedFont(PDFLib.StandardFonts.HelveticaBold);
+      for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+        const page = pages[pageIdx];
+        const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
+        const { width: originalWidth, height: pageHeight } = page.getSize();
         
-        const MARGIN = 230; // Margem inserida nas DUAS extremidades
-
-        for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
-          const page = pages[pageIdx];
-          const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
-          if (pageAnns.length === 0) continue;
-
-          const comments = pageAnns.filter(a => a.type === 'comment');
-          const { width: originalWidth, height: pageHeight } = page.getSize();
-          
-          if (comments.length > 0) {
-            // Expande a página e centraliza o conteúdo original
-            page.setWidth(originalWidth + (MARGIN * 2));
-            page.translateContent(MARGIN, 0); 
-
-            // Pinta as duas margens laterais de cinza claro para destaque
-            page.drawRectangle({ x: -MARGIN, y: 0, width: MARGIN, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
-            page.drawRectangle({ x: originalWidth, y: 0, width: MARGIN, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
-          }
-
-          // Renderiza os destaques, grifos, sublinhados etc
-          pageAnns.forEach(ann => {
-            const [r, g, b] = ann.colorRGB;
-            if (ann.type !== 'comment') {
-              ann.rects.forEach(rect => {
-                const pdfX = rect.x / scale;
-                const pdfY = pageHeight - (rect.y / scale);
-                const pdfW = rect.w / scale;
-                const pdfH = rect.h / scale;
-                if (ann.type === 'highlight') {
-                  page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.45 });
-                } else if (ann.type === 'underline') {
-                  page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(r, g, b) });
-                } else if (ann.type === 'strike') {
-                  page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
-                }
-              });
-            }
-          });
-
-          // Distribui e processa os comentários
-          if (comments.length > 0) {
-            // Ordena top to bottom usando as coordenadas da tela
-            comments.sort((a, b) => a.rects[0].y - b.rects[0].y);
-            
-            const leftComments = [];
-            const rightComments = [];
-            
-            comments.forEach(c => {
-              const avgX = c.rects.reduce((sum, r) => sum + r.x, 0) / c.rects.length;
-              if (avgX < (originalWidth * scale) / 2) leftComments.push(c);
-              else rightComments.push(c);
-            });
-
-            const drawCommentsForSide = (commentList, isLeft) => {
-              let nextAvailableY = pageHeight - 20; // Inicia do topo da página
-
-              commentList.forEach(ann => {
-                let maxRightX = 0; 
-                let minLeftX = originalWidth;
-                let basePdfY = 0;
-
-                ann.rects.forEach(rect => {
-                  const pdfX = rect.x / scale;
-                  const pdfY = pageHeight - (rect.y / scale);
-                  const pdfW = rect.w / scale;
-                  const pdfH = rect.h / scale;
-                  
-                  if (pdfX < minLeftX) minLeftX = pdfX;
-                  if ((pdfX + pdfW) > maxRightX) {
-                    maxRightX = pdfX + pdfW;
-                    basePdfY = pdfY - (pdfH / 2); 
-                  }
-                  
-                  // Sombreamento base para mostrar qual texto está comentado
-                  page.drawRectangle({
-                    x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH,
-                    color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8
-                  });
-                });
-
-                const boxPadding = 8;
-                const contentWidth = MARGIN - (boxPadding * 2) - 30; // Margem interna
-                
-                const title = `[CM${ann.cmIndex}]: `;
-                const textStr = ann.commentText || '';
-                const lines = splitTextToLines(textStr, contentWidth, font, 9);
-                
-                const textHeight = (lines.length + 1) * 12; 
-                const boxHeight = textHeight + (boxPadding * 2);
-                
-                // Correção chave para posicionamento (respeita o topo da página e impede sobreposição descendo)
-                let targetY = basePdfY + (boxHeight / 2);
-                if (targetY > nextAvailableY) {
-                  targetY = nextAvailableY; 
-                }
-                
-                const boxBottomY = targetY - boxHeight;
-                nextAvailableY = boxBottomY - 10; 
-
-                const boxLeftX = isLeft ? (-MARGIN + 15) : (originalWidth + 15);
-
-                // Desenha a linha conectando o texto à caixa nas extremidades correspondentes
-                page.drawLine({
-                  start: { x: isLeft ? minLeftX : maxRightX, y: basePdfY },
-                  end: { x: isLeft ? (boxLeftX + contentWidth + boxPadding*2) : boxLeftX, y: targetY - (boxHeight / 2) },
-                  thickness: 1, color: PDFLib.rgb(0.8, 0.2, 0.2) 
-                });
-
-                // Caixa e Textos
-                page.drawRectangle({
-                  x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight,
-                  color: PDFLib.rgb(1, 1, 1), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1
-                });
-
-                page.drawText(title, {
-                  x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - 9,
-                  size: 9, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1)
-                });
-
-                let currentTextY = boxBottomY + boxHeight - boxPadding - 21;
-                lines.forEach(line => {
-                  page.drawText(line, {
-                    x: boxLeftX + boxPadding, y: currentTextY,
-                    size: 9, font: font, color: PDFLib.rgb(0.2, 0.2, 0.2)
-                  });
-                  currentTextY -= 12;
-                });
-              });
-            };
-
-            drawCommentsForSide(leftComments, true);
-            drawCommentsForSide(rightComments, false);
-          }
+        const comments = pageAnns.filter(a => a.type === 'comment');
+        
+        if (comments.length > 0) {
+          page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
+          page.drawRectangle({ x: originalWidth, y: 0, width: EXTRA_MARGIN_WIDTH, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
         }
 
-        const finalBytes = await docToExport.save();
-        const blob = new Blob([finalBytes], { type: 'application/pdf' });
-        triggerDownload(blob, fileName.replace('.pdf', '_revisado.pdf'));
-        
-        btn.innerHTML = '✅ Download Completo!';
-        setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-        }, 3000);
+        let nextAvailableY = pageHeight - 20; 
 
-      } catch (err) {
-        console.error(err);
-        alert("Ocorreu um erro ao gerar o PDF. Verifique se o arquivo não está corrompido.");
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        comments.sort((a, b) => b.rects[0].y - a.rects[0].y);
+
+        pageAnns.forEach(ann => {
+          const [r, g, b] = ann.colorRGB;
+
+          if (ann.type === 'comment') {
+            let maxRightX = 0; 
+            let basePdfY = 0;
+
+            ann.rects.forEach(rect => {
+              const pdfX = rect.x / scale;
+              const pdfY = pageHeight - (rect.y / scale);
+              const pdfW = rect.w / scale;
+              const pdfH = rect.h / scale;
+              
+              if ((pdfX + pdfW) > maxRightX) {
+                maxRightX = pdfX + pdfW;
+                basePdfY = pdfY - (pdfH / 2); 
+              }
+              
+              page.drawRectangle({
+                x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH,
+                color: PDFLib.rgb(1, 0.9, 0.9),
+                borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
+                borderWidth: 1,
+                opacity: 0.4,
+                borderOpacity: 0.8
+              });
+            });
+
+            const boxPadding = 8;
+            const boxMarginLeft = 20;
+            const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;
+            
+            const title = `Commented [CM${ann.cmIndex}]: `;
+            const lines = splitTextToLines(ann.commentText, contentWidth, font, 9);
+            
+            const textHeight = (lines.length + 1) * 12; 
+            const boxHeight = textHeight + (boxPadding * 2);
+            
+            let targetY = basePdfY + (boxHeight / 2);
+            if (targetY > nextAvailableY) {
+              targetY = nextAvailableY; 
+            }
+            nextAvailableY = targetY - boxHeight - 10; 
+
+            const boxLeftX = originalWidth + boxMarginLeft;
+            const boxBottomY = targetY - boxHeight;
+
+            page.drawLine({
+              start: { x: maxRightX, y: basePdfY },
+              end: { x: boxLeftX, y: targetY - (boxHeight / 2) },
+              thickness: 1,
+              color: PDFLib.rgb(0.8, 0.2, 0.2) 
+            });
+
+            page.drawRectangle({
+              x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight,
+              color: PDFLib.rgb(1, 1, 1), 
+              borderColor: PDFLib.rgb(0.8, 0.2, 0.2), 
+              borderWidth: 1
+            });
+
+            page.drawText(title, {
+              x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - 9,
+              size: 9, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1)
+            });
+
+            let currentTextY = boxBottomY + boxHeight - boxPadding - 21;
+            lines.forEach(line => {
+              page.drawText(line, {
+                x: boxLeftX + boxPadding, y: currentTextY,
+                size: 9, font: font, color: PDFLib.rgb(0.2, 0.2, 0.2)
+              });
+              currentTextY -= 12;
+            });
+
+          } else {
+            ann.rects.forEach(rect => {
+              const pdfX = rect.x / scale;
+              const pdfY = pageHeight - (rect.y / scale);
+              const pdfW = rect.w / scale;
+              const pdfH = rect.h / scale;
+
+              if (ann.type === 'highlight') {
+                page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.45 });
+              } else if (ann.type === 'underline') {
+                page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(r, g, b) });
+              } else if (ann.type === 'strike') {
+                page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
+              }
+            });
+          }
+        });
       }
+
+      const finalBytes = await pdfLibDoc.save();
+      const blob = new Blob([finalBytes], { type: 'application/pdf' });
+      triggerDownload(blob, fileName.replace('.pdf', '_revisado.pdf'));
     }
 
     function triggerDownload(blob, outputName) {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = outputName;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
     }
   </script>
 </body>

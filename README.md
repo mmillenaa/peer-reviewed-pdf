@@ -16,7 +16,8 @@ Ferramentas tradicionais de leitura de PDF dificultam a numeração de linhas de
 Basta clonar o repositório e abrir o arquivo `index.html` em qualquer navegador moderno. Nenhuma instalação ou servidor local é necessário.
 
 [https://mmillenaa.github.io/peer-reviewed-pdf/](https://mmillenaa.github.io/peer-reviewed-pdf/)
-<img width="1106" height="494" alt="logo" src="https://github.com/user-attachments/assets/75bcbdda-c21f-485b-ad95-b921209a0bc2" />
+<img width="1560" height="672" alt="image (2)" src="https://github.com/user-attachments/assets/745a06ea-6d22-464f-9d65-291af2ca2613" />
+
 ---
 
 # Peer-Reviewed PDF App 📄
@@ -38,6 +39,6 @@ Simply clone the repository and open the `index.html` file in any modern web bro
 
 [https://mmillenaa.github.io/peer-reviewed-pdf/](https://mmillenaa.github.io/peer-reviewed-pdf/)
 
-<img width="1560" height="672" alt="image (2)" src="https://github.com/user-attachments/assets/745a06ea-6d22-464f-9d65-291af2ca2613" />
+<img width="1106" height="494" alt="logo" src="https://github.com/user-attachments/assets/75bcbdda-c21f-485b-ad95-b921209a0bc2" />
 
 

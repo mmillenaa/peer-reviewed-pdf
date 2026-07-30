@@ -38,3 +38,6 @@ Simply clone the repository and open the `index.html` file in any modern web bro
 
 [https://mmillenaa.github.io/peer-reviewed-pdf/](https://mmillenaa.github.io/peer-reviewed-pdf/)
 
+<img width="1560" height="672" alt="image (2)" src="https://github.com/user-attachments/assets/745a06ea-6d22-464f-9d65-291af2ca2613" />
+
+

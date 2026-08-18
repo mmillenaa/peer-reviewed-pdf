@@ -358,7 +358,7 @@
 
         // Converte canvas para imagem (JPEG)
         const imageData = canvas.toDataURL('image/jpeg', 0.95);
-        const label = `Página ${i}/${totalPages}`;
+        const label = `Page ${i}/${totalPages}`;
         updateOcrProgress((i - 1) / totalPages * 100, `OCR: ${label}`);
 
         // Executa Tesseract na imagem
@@ -483,7 +483,7 @@
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = '';
-      document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} páginas`;
+      document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} pages`;
 
       for (let i = 1; i <= pdfjsDoc.numPages; i++) {
         const wrapper = document.createElement('div');

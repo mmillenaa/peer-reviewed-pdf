@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Revisar e Numerar PDF (com OCR)</title>
+  <title>Revisar e Numerar PDF (com OCR Melhorado)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -13,7 +13,7 @@
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
   <style>
-    /* Estilos mantidos */
+    /* Estilos idênticos aos anteriores */
     .pdf-page-wrapper {
       position: relative;
       display: inline-block;
@@ -28,9 +28,10 @@
       position: absolute;
       left: 0; top: 0; right: 0; bottom: 0;
       overflow: hidden;
-      opacity: 0.2;
+      opacity: 0.15;
       line-height: 1.0;
       cursor: text;
+      pointer-events: auto;
     }
     .textLayer ::selection {
       background: rgba(0, 0, 255, 0.3);
@@ -46,6 +47,7 @@
       top: 0; left: 0;
       width: 100%; height: 100%;
       pointer-events: none;
+      z-index: 10;
     }
     #scrollContainer::-webkit-scrollbar { width: 10px; }
     #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -93,7 +95,6 @@
     .postit-cursor .textLayer {
         cursor: crosshair !important;
     }
-    /* indicador de progresso */
     #ocrProgress {
       display: none;
       width: 100%;
@@ -165,7 +166,6 @@
     </div>
     
     <div id="statusMsg" class="text-xs font-medium mt-4 h-4"></div>
-    <!-- Barra de progresso do OCR -->
     <div id="ocrProgress" class="mt-3">
       <div class="flex justify-between text-xs text-gray-500"><span id="ocrLabel">Processando OCR...</span><span id="ocrPercent">0%</span></div>
       <div id="ocrProgressBar"><div id="ocrProgressFill" style="width:0%"></div></div>
@@ -205,7 +205,7 @@
       </div>
       <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
         <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full relative">
-          <!-- Páginas serão geradas aqui -->
+          <!-- Páginas geradas aqui -->
         </div>
       </div>
     </div>
@@ -260,8 +260,12 @@
     let fileName = "";
     let pdfjsDoc = null;
     let pdfWasNumbered = false;
-    let ocrTextContents = null;      // Array com textContent artificial para cada página (se OCR)
+    let ocrTextContents = null;
+    let pageTextContents = null;
     let isOcrDone = false;
+
+    // Escala maior para melhor precisão (mas mais lento)
+    const OCR_SCALE = 2.0;
 
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
@@ -309,60 +313,129 @@
       try {
         const page = await pdfDoc.getPage(1);
         const tc = await page.getTextContent();
-        // Se houver pelo menos 5 itens de texto, consideramos que tem texto
         return tc.items.length < 5;
       } catch (e) {
-        return true; // em caso de erro, trata como escaneado
+        return true;
       }
     }
 
-    // Converte os resultados do Tesseract para o formato textContent do pdf.js
-    function buildTextContentFromOCR(ocrResult, pageHeight) {
-      const items = [];
-      for (const word of ocrResult.data.words) {
+    // Converte resultados do Tesseract para o formato textContent do pdf.js,
+    // ordenando as palavras por linha e por posição horizontal para manter a ordem de leitura.
+    function buildTextContentFromOCR(ocrResult, pageWidth, pageHeight, ocrScale) {
+      const words = ocrResult.data.words;
+      if (!words || words.length === 0) return { items: [] };
+
+      // Primeiro, extraímos todas as palavras com suas coordenadas em unidades PDF
+      const pdfWords = words.map(word => {
         const bbox = word.bbox;
-        // Coordenadas no sistema PDF (y invertido)
-        const x0 = bbox.x0;
-        const y0 = pageHeight - bbox.y1; // bbox.y1 é o topo, então invertemos
-        const width = bbox.x1 - bbox.x0;
-        const height = bbox.y1 - bbox.y0;
-        // Para cada palavra, criamos um item
-        items.push({
+        const x0 = bbox.x0 / ocrScale;
+        const y1 = (pageHeight * ocrScale - bbox.y1) / ocrScale; // base da palavra (invertido)
+        const x1 = bbox.x1 / ocrScale;
+        const y0 = (pageHeight * ocrScale - bbox.y0) / ocrScale; // topo da palavra (invertido)
+        const width = (bbox.x1 - bbox.x0) / ocrScale;
+        const height = (bbox.y1 - bbox.y0) / ocrScale;
+        return {
           str: word.text,
-          transform: [1, 0, 0, 1, x0, y0], // sem rotação
+          x: x0,
+          y: y0,      // topo
+          baseY: y1,  // base (linha de base)
           width: width,
           height: height,
-          fontName: '',
-          hasEOL: false,
-          // Adicionamos também a posição original para referência
-          _origX: x0,
-          _origY: y0,
-        });
+          x1: x1,
+          y1: y1,
+        };
+      });
+
+      // Agrupar por linhas: palavras com baseY semelhante (diferença < altura média * 0.6)
+      // Calcular altura média
+      const avgHeight = pdfWords.reduce((sum, w) => sum + w.height, 0) / pdfWords.length;
+      const tolerance = avgHeight * 0.6;
+
+      // Ordenar palavras por baseY (crescente, de cima para baixo) e depois por x (esquerda para direita)
+      // Vamos agrupar iterativamente
+      const lines = [];
+      const sortedByBase = [...pdfWords].sort((a, b) => a.baseY - b.baseY);
+
+      for (const word of sortedByBase) {
+        let added = false;
+        // Procura uma linha existente com baseY próxima
+        for (const line of lines) {
+          const avgBase = line.reduce((s, w) => s + w.baseY, 0) / line.length;
+          if (Math.abs(word.baseY - avgBase) < tolerance) {
+            line.push(word);
+            added = true;
+            break;
+          }
+        }
+        if (!added) {
+          lines.push([word]);
+        }
       }
+
+      // Agora, ordenar cada linha por x (esquerda para direita)
+      // e também ordenar as linhas por baseY média (de cima para baixo)
+      lines.forEach(line => line.sort((a, b) => a.x - b.x));
+      lines.sort((a, b) => {
+        const avgA = a.reduce((s, w) => s + w.baseY, 0) / a.length;
+        const avgB = b.reduce((s, w) => s + w.baseY, 0) / b.length;
+        return avgA - avgB;
+      });
+
+      // Construir os itens na ordem correta
+      const items = [];
+      for (const line of lines) {
+        for (const word of line) {
+          // A posição y que usaremos é a baseY, que representa a linha de base (mais adequada para alinhamento)
+          const yPos = word.baseY;
+          items.push({
+            str: word.str,
+            transform: [1, 0, 0, 1, word.x, yPos],
+            width: word.width,
+            height: word.height,
+            fontName: '',
+            hasEOL: false,
+          });
+        }
+      }
+
       return { items };
     }
 
     async function performOCR(pdfDoc) {
       const totalPages = pdfDoc.numPages;
       const ocrResults = [];
-      updateOcrProgress(0, 'Preparando OCR...');
+      updateOcrProgress(0, 'Preparando OCR... (pode demorar)');
 
       for (let i = 1; i <= totalPages; i++) {
         const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 }); // escala maior para melhor OCR
+        // Usamos escala OCR_SCALE para melhor precisão
+        const viewport = page.getViewport({ scale: OCR_SCALE });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext('2d');
+        // Pré-processamento: renderizar a página, depois aumentar contraste (opcional)
         await page.render({ canvasContext: ctx, viewport }).promise;
 
-        // Converte canvas para imagem (JPEG)
-        const imageData = canvas.toDataURL('image/jpeg', 0.95);
-        const label = `Page ${i}/${totalPages}`;
+        // (Opcional) Melhorar contraste: converter para escala de cinza e ajustar níveis
+        // Isso pode ajudar o Tesseract. Vamos fazer uma conversão simples para melhorar.
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        for (let j = 0; j < data.length; j += 4) {
+          const gray = 0.299 * data[j] + 0.587 * data[j+1] + 0.114 * data[j+2];
+          // Aumentar contraste (valores abaixo de 128 ficam mais escuros, acima mais claros)
+          const contrast = 1.2; // fator de contraste
+          let newVal = 128 + (gray - 128) * contrast;
+          newVal = Math.min(255, Math.max(0, newVal));
+          data[j] = data[j+1] = data[j+2] = newVal;
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        const imageDataURL = canvas.toDataURL('image/png'); // PNG sem perda
+        const label = `Página ${i}/${totalPages}`;
         updateOcrProgress((i - 1) / totalPages * 100, `OCR: ${label}`);
 
-        // Executa Tesseract na imagem
-        const result = await Tesseract.recognize(imageData, 'por+eng', {
+        const result = await Tesseract.recognize(imageDataURL, 'por+eng', {
           logger: (m) => {
             if (m.status === 'recognizing text') {
               const progress = m.progress || 0;
@@ -371,8 +444,9 @@
             }
           }
         });
-        // Converte para o formato pdf.js
-        const textContent = buildTextContentFromOCR(result, viewport.height);
+
+        const { width: pageWidth, height: pageHeight } = page.getViewport({ scale: 1 });
+        const textContent = buildTextContentFromOCR(result, pageWidth, pageHeight, OCR_SCALE);
         ocrResults.push(textContent);
         updateOcrProgress((i / totalPages) * 100, `OCR concluído: ${label}`);
       }
@@ -380,59 +454,8 @@
       return ocrResults;
     }
 
-    // ===== Processamento principal =====
-    async function startProcess(mode) {
-      if (!rawFileBuffer) return;
-      setStatus("Processando documento...");
-      document.getElementById('ocrProgress').style.display = 'none';
-
-      try {
-        let bufferToLoad = rawFileBuffer.slice(0);
-
-        // Numerar (se solicitado)
-        if (mode === 'number' || mode === 'both') {
-          bufferToLoad = await applyNumbering(bufferToLoad);
-          pdfWasNumbered = true;
-        } else {
-          pdfWasNumbered = false;
-        }
-
-        // Carregar PDF com pdf.js
-        const pdfDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
-        pdfjsDoc = pdfDoc;
-
-        // Verificar se é escaneado (sem texto)
-        const scanned = await isPDFScanned(pdfDoc);
-        if (scanned) {
-          setStatus("Scanned PDF detected. Starting OCR...", 'default');
-          ocrTextContents = await performOCR(pdfDoc);
-          isOcrDone = true;
-          setStatus("OCR concluído! Pronto para revisão.", 'success');
-        } else {
-          ocrTextContents = null;
-          isOcrDone = false;
-          setStatus("PDF with detected text. Ready for review!", 'success');
-        }
-
-        // Esconder tela inicial e mostrar workspace
-        document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('mainBody').classList.remove('justify-center');
-        document.getElementById('mainBody').classList.add('justify-start');
-        const ws = document.getElementById('workspace');
-        ws.classList.remove('hidden');
-        ws.classList.add('grid');
-
-        await renderAllPages();
-      } catch (err) {
-        console.error(err);
-        setStatus("Erro ao processar o PDF: " + err.message, 'error');
-      }
-    }
-
-    // ===== Numeração de linhas (usa OCR se disponível) =====
-    async function applyNumbering(buffer) {
-      // Carrega temporariamente para extrair coordenadas
-      const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
+    // ===== Numeração de linhas =====
+    async function applyNumbering(buffer, textContentsByPage) {
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
       const font = await tempLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
 
@@ -440,23 +463,15 @@
       const margemX = 20;
       let lineNumber = 1;
 
-      for (let pageNum = 1; pageNum <= tempPdfjs.numPages; pageNum++) {
-        const pdfjsPage = await tempPdfjs.getPage(pageNum);
-        const pdfLibPage = tempLibDoc.getPage(pageNum - 1);
+      for (let pageIdx = 0; pageIdx < tempLibDoc.getPageCount(); pageIdx++) {
+        const pdfLibPage = tempLibDoc.getPage(pageIdx);
         const { height: pageHeight } = pdfLibPage.getSize();
-        
-        let textContent;
-        // Usa OCR se disponível, senão o texto original
-        if (ocrTextContents && ocrTextContents[pageNum - 1]) {
-          textContent = ocrTextContents[pageNum - 1];
-        } else {
-          textContent = await pdfjsPage.getTextContent();
-        }
+        const textContent = textContentsByPage[pageIdx];
+        if (!textContent || !textContent.items || textContent.items.length === 0) continue;
 
         let yCoords = [];
         for (const item of textContent.items) {
           if (!item.str || item.str.trim() === '' || !item.transform) continue;
-          // A coordenada y está em transform[5]
           const yPos = item.transform[5];
           if (yPos >= 45 && yPos <= (pageHeight - 50)) yCoords.push(yPos);
         }
@@ -479,11 +494,65 @@
       return await tempLibDoc.save();
     }
 
+    // ===== Processamento principal =====
+    async function startProcess(mode) {
+      if (!rawFileBuffer) return;
+      setStatus("Processando documento...");
+      document.getElementById('ocrProgress').style.display = 'none';
+
+      try {
+        const pdfDoc = await pdfjsLib.getDocument({ data: rawFileBuffer.slice(0) }).promise;
+        const scanned = await isPDFScanned(pdfDoc);
+
+        let textContents = [];
+        if (scanned) {
+          setStatus("PDF escaneado detectado. Iniciando OCR (pode demorar)...", 'default');
+          ocrTextContents = await performOCR(pdfDoc);
+          isOcrDone = true;
+          textContents = ocrTextContents;
+          setStatus("OCR concluído!", 'success');
+        } else {
+          for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            const tc = await page.getTextContent();
+            textContents.push(tc);
+          }
+          ocrTextContents = null;
+          isOcrDone = false;
+        }
+
+        pageTextContents = textContents;
+
+        let bufferToLoad = rawFileBuffer.slice(0);
+        if (mode === 'number' || mode === 'both') {
+          bufferToLoad = await applyNumbering(bufferToLoad, pageTextContents);
+          pdfWasNumbered = true;
+        } else {
+          pdfWasNumbered = false;
+        }
+
+        pdfjsDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
+
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('mainBody').classList.remove('justify-center');
+        document.getElementById('mainBody').classList.add('justify-start');
+        const ws = document.getElementById('workspace');
+        ws.classList.remove('hidden');
+        ws.classList.add('grid');
+
+        await renderAllPages();
+        setStatus("Pronto para revisão!", 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus("Erro ao processar o PDF: " + err.message, 'error');
+      }
+    }
+
     // ===== Renderização das páginas =====
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = '';
-      document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} pages`;
+      document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} páginas`;
 
       for (let i = 1; i <= pdfjsDoc.numPages; i++) {
         const wrapper = document.createElement('div');
@@ -518,15 +587,12 @@
         const context = canvas.getContext('2d');
         await page.render({ canvasContext: context, viewport }).promise;
 
-        // --- Camada de texto ---
         let textContent;
-        if (ocrTextContents && ocrTextContents[i - 1]) {
-          textContent = ocrTextContents[i - 1];
+        if (pageTextContents && pageTextContents[i - 1]) {
+          textContent = pageTextContents[i - 1];
         } else {
           textContent = await page.getTextContent();
         }
-
-        // Renderiza a textLayer manualmente usando o conteúdo (seja OCR ou original)
         renderTextLayer(textLayer, textContent, viewport);
 
         textLayer.addEventListener('mousedown', handleTextLayerMouseDown);
@@ -535,29 +601,18 @@
       redrawAnnotations();
     }
 
-    // Função auxiliar para renderizar a textLayer com base no textContent
     function renderTextLayer(container, textContent, viewport) {
       container.innerHTML = '';
-      const scaleX = viewport.width / (viewport.width / scale);
-      const scaleY = viewport.height / (viewport.height / scale);
-
       for (const item of textContent.items) {
         const span = document.createElement('span');
         span.textContent = item.str;
-        // As coordenadas do item já estão no sistema do PDF (com y invertido)
-        // Precisamos aplicar o scale do viewport e também o fator de escala atual
-        // Como o viewport já está com o scale aplicado, usamos diretamente as coordenadas do item
-        // que estão em unidades do PDF. Precisamos multiplicar pelo scale atual.
-        const [a, b, c, d, e, f] = item.transform; // a,b,c,d são escala/rotação
-        // Para texto simples, a e d são o fator de escala (1 normalmente)
-        // e e f são translação
+        const [a, b, c, d, e, f] = item.transform;
         const x = e * scale;
-        const y = (viewport.height - f) * scale; // inverte y
+        const y = (viewport.height - f) * scale;
         const w = item.width * scale;
         const h = item.height * scale;
-
         span.style.left = `${x}px`;
-        span.style.top = `${y - h}px`; // pdf.js usa top = y - height
+        span.style.top = `${y - h}px`;
         span.style.fontSize = `${h}px`;
         span.style.transform = `scale(${scale})`;
         span.style.transformOrigin = '0 0';
@@ -723,11 +778,24 @@
       }
     }
 
+    function getUnifiedRect(rects) {
+      if (!rects || rects.length === 0) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const r of rects) {
+        if (r.x < minX) minX = r.x;
+        if (r.y < minY) minY = r.y;
+        if (r.x + r.w > maxX) maxX = r.x + r.w;
+        if (r.y + r.h > maxY) maxY = r.y + r.h;
+      }
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
       annotations.forEach(ann => {
         const svg = document.getElementById(`svgOverlay-${ann.page}`);
         if (!svg) return;
+
         if (ann.type === 'postit') {
           const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
           const r = ann.rects[0];
@@ -755,41 +823,48 @@
           svg.appendChild(foreignObject);
           return;
         }
-        ann.rects.forEach(r => {
-          let el;
-          const sx = r.x * scale, sy = r.y * scale, sw = r.w * scale, sh = r.h * scale;
-          if (ann.type === 'highlight' || ann.type === 'comment') {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            el.setAttribute('x', sx); el.setAttribute('y', sy);
-            el.setAttribute('width', sw); el.setAttribute('height', sh);
-            if (ann.type === 'comment') {
-              el.setAttribute('fill', '#fee2e2');
-              el.setAttribute('opacity', '0.6');
-              el.setAttribute('stroke', '#dc2626');
-              el.setAttribute('stroke-width', '1');
-            } else {
-              el.setAttribute('fill', ann.colorHex);
-              el.setAttribute('opacity', '0.45');
-            }
-          } else if (ann.type === 'underline') {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            el.setAttribute('x1', sx); el.setAttribute('y1', sy + sh - 1);
-            el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + sh - 1);
-            el.setAttribute('stroke', ann.vibrantHex || '#eab308');
-            el.setAttribute('stroke-width', '2');
-          } else if (ann.type === 'strike') {
-            el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            el.setAttribute('x1', sx); el.setAttribute('y1', sy + (sh / 2));
-            el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + (sh / 2));
-            el.setAttribute('stroke', '#ef4444'); el.setAttribute('stroke-width', '1.5');
+
+        const unified = getUnifiedRect(ann.rects);
+        if (!unified) return;
+        const sx = unified.x * scale;
+        const sy = unified.y * scale;
+        const sw = unified.w * scale;
+        const sh = unified.h * scale;
+
+        let el;
+        if (ann.type === 'highlight' || ann.type === 'comment') {
+          el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          el.setAttribute('x', sx); el.setAttribute('y', sy);
+          el.setAttribute('width', sw); el.setAttribute('height', sh);
+          if (ann.type === 'comment') {
+            el.setAttribute('fill', '#fee2e2');
+            el.setAttribute('opacity', '0.6');
+            el.setAttribute('stroke', '#dc2626');
+            el.setAttribute('stroke-width', '1');
+          } else {
+            el.setAttribute('fill', ann.colorHex);
+            el.setAttribute('opacity', '0.35');
           }
-          if (el) {
-            el.style.pointerEvents = 'auto';
-            el.style.cursor = 'pointer';
-            el.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
-            svg.appendChild(el);
-          }
-        });
+        } else if (ann.type === 'underline') {
+          el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          el.setAttribute('x1', sx); el.setAttribute('y1', sy + sh - 1);
+          el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + sh - 1);
+          el.setAttribute('stroke', ann.vibrantHex || '#eab308');
+          el.setAttribute('stroke-width', '2');
+        } else if (ann.type === 'strike') {
+          el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          el.setAttribute('x1', sx); el.setAttribute('y1', sy + (sh / 2));
+          el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + (sh / 2));
+          el.setAttribute('stroke', '#ef4444');
+          el.setAttribute('stroke-width', '1.5');
+        }
+
+        if (el) {
+          el.style.pointerEvents = 'auto';
+          el.style.cursor = 'pointer';
+          el.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
+          svg.appendChild(el);
+        }
       });
     }
 
@@ -927,7 +1002,7 @@
     async function downloadFinalPDF() {
       let bufferToExport = rawFileBuffer.slice(0);
       if (pdfWasNumbered) {
-        bufferToExport = await applyNumbering(bufferToExport);
+        bufferToExport = await applyNumbering(bufferToExport, pageTextContents);
       }
       const freshPdfLibDoc = await PDFLib.PDFDocument.load(bufferToExport);
       const pages = freshPdfLibDoc.getPages();
@@ -956,27 +1031,26 @@
           let basePdfY = 0;
 
           if (ann.type !== 'postit') {
+            const unified = getUnifiedRect(ann.rects);
+            if (!unified) return;
+            const pdfX = unified.x;
+            const pdfY = pageHeight - unified.y;
+            const pdfW = unified.w;
+            const pdfH = unified.h;
             const [r, g, b] = ann.colorRGB;
             const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03];
-            ann.rects.forEach(rect => {
-              const pdfX = rect.x;
-              const pdfY = pageHeight - rect.y;
-              const pdfW = rect.w;
-              const pdfH = rect.h;
-              if ((pdfX + pdfW) > maxRightX) {
-                maxRightX = pdfX + pdfW;
-                basePdfY = pdfY - (pdfH / 2);
-              }
-              if (ann.type === 'comment') {
-                page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
-              } else if (ann.type === 'highlight') {
-                page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.45 });
-              } else if (ann.type === 'underline') {
-                page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(vRGB[0], vRGB[1], vRGB[2]) });
-              } else if (ann.type === 'strike') {
-                page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
-              }
-            });
+
+            if (ann.type === 'comment') {
+              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
+            } else if (ann.type === 'highlight') {
+              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.35 });
+            } else if (ann.type === 'underline') {
+              page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(vRGB[0], vRGB[1], vRGB[2]) });
+            } else if (ann.type === 'strike') {
+              page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
+            }
+            maxRightX = pdfX + pdfW;
+            basePdfY = pdfY - (pdfH / 2);
           }
 
           if (ann.type !== 'postit' && ann.commentText && ann.commentText.trim() !== '') {

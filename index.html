@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Revisar e Numerar PDF</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Revisar e Numerar PDF (com OCR)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
   <style>
+    /* Estilos mantidos */
     .pdf-page-wrapper {
       position: relative;
       display: inline-block;
@@ -44,16 +47,13 @@
       width: 100%; height: 100%;
       pointer-events: none;
     }
-    
     #scrollContainer::-webkit-scrollbar { width: 10px; }
     #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
     #scrollContainer::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
     #scrollContainer::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-
     #sidebarList::-webkit-scrollbar { width: 6px; }
     #sidebarList::-webkit-scrollbar-track { background: transparent; }
     #sidebarList::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
-
     #selectionPopup {
       position: absolute;
       background: white;
@@ -90,15 +90,32 @@
       color: #111827;
     }
     .popup-btn svg { width: 18px; height: 18px; }
-
     .postit-cursor .textLayer {
         cursor: crosshair !important;
+    }
+    /* indicador de progresso */
+    #ocrProgress {
+      display: none;
+      width: 100%;
+      margin-top: 8px;
+    }
+    #ocrProgressBar {
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    #ocrProgressFill {
+      height: 100%;
+      width: 0%;
+      background: #3b82f6;
+      transition: width 0.3s;
     }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-all duration-300" id="mainBody">
 
-  <!-- Popup de Ferramentas ao Selecionar Texto -->
+  <!-- Popup de Ferramentas -->
   <div id="selectionPopup">
     <div class="popup-row gap-1">
       <button class="popup-btn" onclick="applyAnnotation('comment')" title="Comentar">
@@ -124,14 +141,12 @@
 
   <!-- TELA INICIAL -->
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
-    
-    <img src="logo.png" alt="Logo Peer Reviewed PDF" class="h-28 w-auto object-contain mx-auto mb-4">
-    
+    <img src="logo.png" alt="Logo Peer Reviewed PDF" class="h-28 w-auto object-contain mx-auto mb-4" />
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
     <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
     <div class="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-400 transition-colors bg-gray-50/50">
-      <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
+      <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)" />
       <label for="pdfInput" class="cursor-pointer flex flex-col items-center">
         <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
@@ -150,37 +165,35 @@
     </div>
     
     <div id="statusMsg" class="text-xs font-medium mt-4 h-4"></div>
+    <!-- Barra de progresso do OCR -->
+    <div id="ocrProgress" class="mt-3">
+      <div class="flex justify-between text-xs text-gray-500"><span id="ocrLabel">Processando OCR...</span><span id="ocrPercent">0%</span></div>
+      <div id="ocrProgressBar"><div id="ocrProgressFill" style="width:0%"></div></div>
+    </div>
 
     <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
       <p class="text-xs text-gray-500">
         Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
       </p>
-      
       <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
         <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 transition-colors">
-          <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain">
-          CV Lattes
+          <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain" /> CV Lattes
         </a>
         <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 transition-colors">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain">
-          ORCID
+          <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain" /> ORCID
         </a>
         <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 transition-colors">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_BV_FAPESP.jpg" alt="BV FAPESP" class="h-4 w-auto rounded-sm object-contain">
-          BV FAPESP
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_BV_FAPESP.jpg" alt="BV FAPESP" class="h-4 w-auto rounded-sm object-contain" /> BV FAPESP
         </a>
       </div>
     </div>
   </div>
 
-  <!-- WORKSPACE DE REVISÃO -->
+  <!-- WORKSPACE -->
   <div id="workspace" class="max-w-[95%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
-    <!-- Visualizador Central -->
     <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
       <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
-        
         <div class="flex items-center gap-4">
-          <!-- CONTROLES DE ZOOM -->
           <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
             <button onclick="changeZoom(-0.2)" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition font-bold" title="Reduzir zoom">-</button>
             <span id="zoomLevel" class="text-xs font-semibold text-gray-600 w-12 text-center">130%</span>
@@ -188,52 +201,38 @@
           </div>
           <span class="text-[11px] text-gray-400 hidden lg:inline">Use <b>Ctrl + F</b> para buscar.</span>
         </div>
-
         <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
       </div>
-      
-      <!-- Container com Scroll -->
       <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
         <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full relative">
-          <!-- Páginas serão geradas dinamicamente aqui -->
+          <!-- Páginas serão geradas aqui -->
         </div>
       </div>
     </div>
 
-    <!-- Painel Lateral -->
     <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
       <div class="p-5 border-b border-gray-100 bg-gray-50 space-y-4">
-        
         <div>
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Ferramentas</span>
           <div class="flex items-center gap-1.5">
-            <!-- Comentar -->
             <button class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="applyAnnotation('comment')" title="Comentar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
             </button>
-            <!-- Grifar -->
             <button class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="applyAnnotation('highlight')" title="Grifar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
             </button>
-            <!-- Sublinhar -->
             <button class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="applyAnnotation('underline')" title="Sublinhar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M12 16V4m-4 0h8"></path></svg>
             </button>
-            <!-- Tachar -->
             <button class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="applyAnnotation('strike')" title="Tachar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M9 4v4m6-4v4m-3 4v8"></path></svg>
             </button>
-            
-            <!-- Separador sutil -->
             <div class="w-px h-6 bg-gray-200 mx-0.5"></div>
-
-            <!-- Post-it -->
             <button onclick="togglePostIt()" id="btn-postit" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" title="Adicionar post-it solto">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </button>
           </div>
         </div>
-
         <div>
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Cor para grifar e sublinhar</span>
           <div class="flex gap-3">
@@ -244,11 +243,9 @@
           </div>
         </div>
       </div>
-
       <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
         <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF ou insira um post-it para marcar e comentar.</p>
       </div>
-
       <div class="p-4 border-t border-gray-100 bg-white">
         <button onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
           ⬇️ Baixar PDF final
@@ -258,66 +255,141 @@
   </div>
 
   <script>
+    // ===== Variáveis globais =====
     let rawFileBuffer = null;
     let fileName = "";
-    
     let pdfjsDoc = null;
-    let pdfWasNumbered = false; 
-    
+    let pdfWasNumbered = false;
+    let ocrTextContents = null;      // Array com textContent artificial para cada página (se OCR)
+    let isOcrDone = false;
+
     let activeColorHex = '#fef08a';
     let activeColorRGB = [0.99, 0.94, 0.54];
     let activeVibrantHex = '#eab308';
     let activeVibrantRGB = [0.91, 0.70, 0.03];
 
-    let annotations = []; 
+    let annotations = [];
     let scale = 1.3;
-
     let isPostItMode = false;
     let currentSelectionData = null;
+
+    // ===== Funções de UI =====
+    function setStatus(text, type = 'default') {
+      const el = document.getElementById('statusMsg');
+      el.innerText = text;
+      el.className = `text-xs font-medium mt-4 h-4 text-center w-full `;
+      if (type === 'error') el.classList.add('text-red-600');
+      else if (type === 'success') el.classList.add('text-green-600');
+      else el.classList.add('text-gray-500');
+    }
+
+    function updateOcrProgress(percent, label = 'Processando OCR...') {
+      const container = document.getElementById('ocrProgress');
+      container.style.display = 'block';
+      document.getElementById('ocrPercent').innerText = `${Math.round(percent)}%`;
+      document.getElementById('ocrProgressFill').style.width = `${Math.min(100, percent)}%`;
+      document.getElementById('ocrLabel').innerText = label;
+    }
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
       fileName = file.name;
       document.getElementById('fileName').innerText = fileName;
-      
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         rawFileBuffer = e.target.result;
         document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = false);
       };
       reader.readAsArrayBuffer(file);
     }
 
-    function setStatus(text, type = 'default') {
-      const el = document.getElementById('statusMsg');
-      el.innerText = text;
-      el.className = `text-xs font-medium mt-4 h-4 text-center w-full `;
-      if(type === 'error') el.classList.add('text-red-600');
-      else if(type === 'success') el.classList.add('text-green-600');
-      else el.classList.add('text-gray-500');
+    // ===== Detecção e OCR =====
+    async function isPDFScanned(pdfDoc) {
+      try {
+        const page = await pdfDoc.getPage(1);
+        const tc = await page.getTextContent();
+        // Se houver pelo menos 5 itens de texto, consideramos que tem texto
+        return tc.items.length < 5;
+      } catch (e) {
+        return true; // em caso de erro, trata como escaneado
+      }
     }
 
-    async function changeZoom(delta) {
-      if(!pdfjsDoc) return;
-      let newScale = scale + delta;
-      if(newScale < 0.5) newScale = 0.5;
-      if(newScale > 3.0) newScale = 3.0;
-      
-      scale = newScale;
-      document.getElementById('zoomLevel').innerText = Math.round(scale * 100) + '%';
-      
-      // Re-renderizar páginas com novo zoom
-      await renderAllPages();
+    // Converte os resultados do Tesseract para o formato textContent do pdf.js
+    function buildTextContentFromOCR(ocrResult, pageHeight) {
+      const items = [];
+      for (const word of ocrResult.data.words) {
+        const bbox = word.bbox;
+        // Coordenadas no sistema PDF (y invertido)
+        const x0 = bbox.x0;
+        const y0 = pageHeight - bbox.y1; // bbox.y1 é o topo, então invertemos
+        const width = bbox.x1 - bbox.x0;
+        const height = bbox.y1 - bbox.y0;
+        // Para cada palavra, criamos um item
+        items.push({
+          str: word.text,
+          transform: [1, 0, 0, 1, x0, y0], // sem rotação
+          width: width,
+          height: height,
+          fontName: '',
+          hasEOL: false,
+          // Adicionamos também a posição original para referência
+          _origX: x0,
+          _origY: y0,
+        });
+      }
+      return { items };
     }
 
+    async function performOCR(pdfDoc) {
+      const totalPages = pdfDoc.numPages;
+      const ocrResults = [];
+      updateOcrProgress(0, 'Preparando OCR...');
+
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 }); // escala maior para melhor OCR
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        // Converte canvas para imagem (JPEG)
+        const imageData = canvas.toDataURL('image/jpeg', 0.95);
+        const label = `Página ${i}/${totalPages}`;
+        updateOcrProgress((i - 1) / totalPages * 100, `OCR: ${label}`);
+
+        // Executa Tesseract na imagem
+        const result = await Tesseract.recognize(imageData, 'por+eng', {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              const progress = m.progress || 0;
+              const overall = ((i - 1) / totalPages) + (progress / totalPages);
+              updateOcrProgress(overall * 100, `OCR: ${label} (${Math.round(progress * 100)}%)`);
+            }
+          }
+        });
+        // Converte para o formato pdf.js
+        const textContent = buildTextContentFromOCR(result, viewport.height);
+        ocrResults.push(textContent);
+        updateOcrProgress((i / totalPages) * 100, `OCR concluído: ${label}`);
+      }
+      updateOcrProgress(100, 'OCR finalizado!');
+      return ocrResults;
+    }
+
+    // ===== Processamento principal =====
     async function startProcess(mode) {
       if (!rawFileBuffer) return;
       setStatus("Processando documento...");
-      
+      document.getElementById('ocrProgress').style.display = 'none';
+
       try {
         let bufferToLoad = rawFileBuffer.slice(0);
 
+        // Numerar (se solicitado)
         if (mode === 'number' || mode === 'both') {
           bufferToLoad = await applyNumbering(bufferToLoad);
           pdfWasNumbered = true;
@@ -325,32 +397,41 @@
           pdfWasNumbered = false;
         }
 
-        if (mode === 'number') {
-          const blob = new Blob([bufferToLoad], { type: 'application/pdf' });
-          triggerDownload(blob, fileName.replace('.pdf', '_numerado.pdf'));
-          setStatus("Download concluído com sucesso!", 'success');
-          return;
+        // Carregar PDF com pdf.js
+        const pdfDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
+        pdfjsDoc = pdfDoc;
+
+        // Verificar se é escaneado (sem texto)
+        const scanned = await isPDFScanned(pdfDoc);
+        if (scanned) {
+          setStatus("PDF escaneado detectado. Iniciando OCR...", 'default');
+          ocrTextContents = await performOCR(pdfDoc);
+          isOcrDone = true;
+          setStatus("OCR concluído! Pronto para revisão.", 'success');
+        } else {
+          ocrTextContents = null;
+          isOcrDone = false;
+          setStatus("PDF com texto detectado. Pronto para revisão.", 'success');
         }
 
-        pdfjsDoc = await pdfjsLib.getDocument({ data: bufferToLoad }).promise;
-        
+        // Esconder tela inicial e mostrar workspace
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('mainBody').classList.remove('justify-center');
         document.getElementById('mainBody').classList.add('justify-start');
-        
         const ws = document.getElementById('workspace');
         ws.classList.remove('hidden');
         ws.classList.add('grid');
-        
+
         await renderAllPages();
-        
       } catch (err) {
         console.error(err);
-        setStatus("Erro ao processar o PDF.", 'error');
+        setStatus("Erro ao processar o PDF: " + err.message, 'error');
       }
     }
 
+    // ===== Numeração de linhas (usa OCR se disponível) =====
     async function applyNumbering(buffer) {
+      // Carrega temporariamente para extrair coordenadas
       const tempPdfjs = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
       const font = await tempLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
@@ -363,11 +444,19 @@
         const pdfjsPage = await tempPdfjs.getPage(pageNum);
         const pdfLibPage = tempLibDoc.getPage(pageNum - 1);
         const { height: pageHeight } = pdfLibPage.getSize();
-        const textContent = await pdfjsPage.getTextContent();
         
+        let textContent;
+        // Usa OCR se disponível, senão o texto original
+        if (ocrTextContents && ocrTextContents[pageNum - 1]) {
+          textContent = ocrTextContents[pageNum - 1];
+        } else {
+          textContent = await pdfjsPage.getTextContent();
+        }
+
         let yCoords = [];
         for (const item of textContent.items) {
           if (!item.str || item.str.trim() === '' || !item.transform) continue;
+          // A coordenada y está em transform[5]
           const yPos = item.transform[5];
           if (yPos >= 45 && yPos <= (pageHeight - 50)) yCoords.push(yPos);
         }
@@ -390,14 +479,11 @@
       return await tempLibDoc.save();
     }
 
+    // ===== Renderização das páginas =====
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
-      viewer.innerHTML = ''; 
-      
+      viewer.innerHTML = '';
       document.getElementById('pageIndicator').innerText = `Total: ${pdfjsDoc.numPages} páginas`;
-
-      // Define CSS variables for TextLayer scaling based on PDF.js internal workings
-      document.documentElement.style.setProperty('--scale-factor', scale);
 
       for (let i = 1; i <= pdfjsDoc.numPages; i++) {
         const wrapper = document.createElement('div');
@@ -430,16 +516,18 @@
         wrapper.style.height = `${viewport.height}px`;
 
         const context = canvas.getContext('2d');
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        await page.render({ canvasContext: context, viewport }).promise;
 
-        const textContent = await page.getTextContent();
-        
-        pdfjsLib.renderTextLayer({
-          textContentSource: textContent,
-          container: textLayer,
-          viewport: viewport,
-          textDivs: []
-        });
+        // --- Camada de texto ---
+        let textContent;
+        if (ocrTextContents && ocrTextContents[i - 1]) {
+          textContent = ocrTextContents[i - 1];
+        } else {
+          textContent = await page.getTextContent();
+        }
+
+        // Renderiza a textLayer manualmente usando o conteúdo (seja OCR ou original)
+        renderTextLayer(textLayer, textContent, viewport);
 
         textLayer.addEventListener('mousedown', handleTextLayerMouseDown);
         textLayer.addEventListener('mouseup', handleTextSelection);
@@ -447,12 +535,53 @@
       redrawAnnotations();
     }
 
+    // Função auxiliar para renderizar a textLayer com base no textContent
+    function renderTextLayer(container, textContent, viewport) {
+      container.innerHTML = '';
+      const scaleX = viewport.width / (viewport.width / scale);
+      const scaleY = viewport.height / (viewport.height / scale);
+
+      for (const item of textContent.items) {
+        const span = document.createElement('span');
+        span.textContent = item.str;
+        // As coordenadas do item já estão no sistema do PDF (com y invertido)
+        // Precisamos aplicar o scale do viewport e também o fator de escala atual
+        // Como o viewport já está com o scale aplicado, usamos diretamente as coordenadas do item
+        // que estão em unidades do PDF. Precisamos multiplicar pelo scale atual.
+        const [a, b, c, d, e, f] = item.transform; // a,b,c,d são escala/rotação
+        // Para texto simples, a e d são o fator de escala (1 normalmente)
+        // e e f são translação
+        const x = e * scale;
+        const y = (viewport.height - f) * scale; // inverte y
+        const w = item.width * scale;
+        const h = item.height * scale;
+
+        span.style.left = `${x}px`;
+        span.style.top = `${y - h}px`; // pdf.js usa top = y - height
+        span.style.fontSize = `${h}px`;
+        span.style.transform = `scale(${scale})`;
+        span.style.transformOrigin = '0 0';
+        container.appendChild(span);
+      }
+    }
+
+    // ===== Controles de zoom =====
+    async function changeZoom(delta) {
+      if (!pdfjsDoc) return;
+      let newScale = scale + delta;
+      if (newScale < 0.5) newScale = 0.5;
+      if (newScale > 3.0) newScale = 3.0;
+      scale = newScale;
+      document.getElementById('zoomLevel').innerText = Math.round(scale * 100) + '%';
+      await renderAllPages();
+    }
+
+    // ===== Post-it mode =====
     function togglePostIt() {
       isPostItMode = !isPostItMode;
       const btn = document.getElementById('btn-postit');
       const ws = document.getElementById('workspace');
-      
-      if(isPostItMode) {
+      if (isPostItMode) {
         btn.classList.add('ring-2', 'ring-yellow-400', 'bg-yellow-100');
         btn.classList.remove('bg-white');
         ws.classList.add('postit-cursor');
@@ -468,17 +597,14 @@
       if (isPostItMode) {
         const wrapperRect = this.getBoundingClientRect();
         const pageNum = parseInt(this.parentElement.dataset.pageNum);
-        
-        // Salvamos as coordenadas em base 'scale = 1' para ser responsivo ao zoom
         const x = (e.clientX - wrapperRect.left) / scale;
         const y = (e.clientY - wrapperRect.top) / scale;
-
         const newId = Date.now();
         annotations.push({
           id: newId,
           type: 'postit',
           page: pageNum,
-          rects: [{x: x, y: y, w: 150, h: 20}], 
+          rects: [{ x, y, w: 150, h: 20 }],
           colorHex: '#fef08a',
           colorRGB: [0.99, 0.94, 0.54],
           vibrantHex: '#eab308',
@@ -487,14 +613,12 @@
           commentText: '',
           isEditing: true
         });
-
-        togglePostIt(); 
+        togglePostIt();
         redrawAnnotations();
         updateSidebar();
-
         setTimeout(() => {
           const ta = document.getElementById(`textarea-${newId}`);
-          if(ta) ta.focus();
+          if (ta) ta.focus();
         }, 50);
       }
     }
@@ -504,34 +628,29 @@
       activeColorRGB = rgb;
       activeVibrantHex = vHex;
       activeVibrantRGB = vRgb;
-      
       document.querySelectorAll('.color-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-yellow-400', 'ring-green-400', 'ring-blue-400', 'ring-red-400');
       });
-      if(hex === '#fef08a') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-yellow-400');
-      if(hex === '#bbf7d0') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-green-400');
-      if(hex === '#bfdbfe') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
-      if(hex === '#fecaca') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-red-400');
+      if (hex === '#fef08a') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-yellow-400');
+      if (hex === '#bbf7d0') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-green-400');
+      if (hex === '#bfdbfe') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
+      if (hex === '#fecaca') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-red-400');
     }
 
+    // ===== Seleção de texto =====
     function handleTextSelection(e) {
-      if (isPostItMode) return; 
-
+      if (isPostItMode) return;
       const selection = window.getSelection();
       if (selection.isCollapsed) {
         document.getElementById('selectionPopup').style.display = 'none';
         return;
       }
-
       const range = selection.getRangeAt(0);
       const rects = range.getClientRects();
-      
       const wrapperRect = this.getBoundingClientRect();
       const pageNum = parseInt(this.parentElement.dataset.pageNum);
-
       let capturedRects = [];
       for (let i = 0; i < rects.length; i++) {
-        // Armazenar as coordenadas originais do documento (dividindo pelo zoom atual)
         capturedRects.push({
           x: (rects[i].left - wrapperRect.left) / scale,
           y: (rects[i].top - wrapperRect.top) / scale,
@@ -539,14 +658,12 @@
           h: rects[i].height / scale
         });
       }
-
       if (capturedRects.length > 0) {
         currentSelectionData = {
           page: pageNum,
           rects: capturedRects,
           text: selection.toString()
         };
-
         const popup = document.getElementById('selectionPopup');
         popup.style.left = e.pageX + 'px';
         popup.style.top = (e.pageY - 60) + 'px';
@@ -554,23 +671,21 @@
       }
     }
 
-    document.addEventListener('mousedown', function(e) {
+    document.addEventListener('mousedown', function (e) {
       const popup = document.getElementById('selectionPopup');
       if (popup.style.display === 'flex' && !popup.contains(e.target) && !e.target.closest('.textLayer')) {
-         popup.style.display = 'none';
+        popup.style.display = 'none';
       }
     });
 
     function applyAnnotation(type) {
       if (!currentSelectionData) return;
-
       if (type === 'copy') {
         navigator.clipboard.writeText(currentSelectionData.text);
         document.getElementById('selectionPopup').style.display = 'none';
         window.getSelection().removeAllRanges();
         return;
       }
-
       const newId = Date.now();
       annotations.push({
         id: newId,
@@ -582,28 +697,25 @@
         vibrantHex: activeVibrantHex,
         vibrantRGB: activeVibrantRGB,
         text: currentSelectionData.text,
-        commentText: '', 
+        commentText: '',
         isEditing: true
       });
-
       document.getElementById('selectionPopup').style.display = 'none';
       window.getSelection().removeAllRanges();
       currentSelectionData = null;
-
       redrawAnnotations();
       updateSidebar();
-      
       setTimeout(() => {
         const ta = document.getElementById(`textarea-${newId}`);
-        if(ta) ta.focus();
+        if (ta) ta.focus();
       }, 50);
     }
 
+    // ===== Anotações e sidebar =====
     function scrollToSidebar(id) {
       const item = document.getElementById(`sidebar-item-${id}`);
       if (item) {
         item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
         item.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50/30');
         setTimeout(() => {
           item.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/30');
@@ -613,69 +725,57 @@
 
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
-
       annotations.forEach(ann => {
         const svg = document.getElementById(`svgOverlay-${ann.page}`);
-        if(!svg) return;
-
+        if (!svg) return;
         if (ann.type === 'postit') {
-           const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-           const r = ann.rects[0];
-           
-           // Multiplica pelo zoom atual para renderizar a interface
-           foreignObject.setAttribute('x', r.x * scale);
-           foreignObject.setAttribute('y', r.y * scale);
-           foreignObject.setAttribute('width', 220); 
-           // Altura bem grande para não cortar o texto, a div interna com height auto vai definir o tamanho real.
-           foreignObject.setAttribute('height', 1000); 
-           foreignObject.style.pointerEvents = 'auto'; 
-           
-           const div = document.createElement('div');
-           div.style.background = '#fef08a';
-           div.style.border = '1px solid #eab308';
-           div.style.padding = '6px 10px';
-           div.style.boxShadow = '2px 2px 5px rgba(0,0,0,0.15)';
-           div.style.fontFamily = 'serif';
-           div.style.fontSize = '12px';
-           div.style.color = '#3f3f46';
-           div.style.width = 'max-content';
-           div.style.maxWidth = '200px';
-           div.style.height = 'auto'; // Permitir expansão livre!
-           div.style.wordWrap = 'break-word';
-           div.style.cursor = 'pointer';
-           div.innerText = (ann.commentText && ann.commentText.trim() !== '') ? ann.commentText : '📝 Post-it (Clique para editar)';
-           
-           div.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
-           
-           foreignObject.appendChild(div);
-           svg.appendChild(foreignObject);
-           return;
+          const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+          const r = ann.rects[0];
+          foreignObject.setAttribute('x', r.x * scale);
+          foreignObject.setAttribute('y', r.y * scale);
+          foreignObject.setAttribute('width', 220);
+          foreignObject.setAttribute('height', 1000);
+          foreignObject.style.pointerEvents = 'auto';
+          const div = document.createElement('div');
+          div.style.background = '#fef08a';
+          div.style.border = '1px solid #eab308';
+          div.style.padding = '6px 10px';
+          div.style.boxShadow = '2px 2px 5px rgba(0,0,0,0.15)';
+          div.style.fontFamily = 'serif';
+          div.style.fontSize = '12px';
+          div.style.color = '#3f3f46';
+          div.style.width = 'max-content';
+          div.style.maxWidth = '200px';
+          div.style.height = 'auto';
+          div.style.wordWrap = 'break-word';
+          div.style.cursor = 'pointer';
+          div.innerText = (ann.commentText && ann.commentText.trim() !== '') ? ann.commentText : '📝 Post-it (Clique para editar)';
+          div.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
+          foreignObject.appendChild(div);
+          svg.appendChild(foreignObject);
+          return;
         }
-
         ann.rects.forEach(r => {
           let el;
           const sx = r.x * scale, sy = r.y * scale, sw = r.w * scale, sh = r.h * scale;
-
           if (ann.type === 'highlight' || ann.type === 'comment') {
             el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             el.setAttribute('x', sx); el.setAttribute('y', sy);
             el.setAttribute('width', sw); el.setAttribute('height', sh);
-            
             if (ann.type === 'comment') {
-              el.setAttribute('fill', '#fee2e2'); 
+              el.setAttribute('fill', '#fee2e2');
               el.setAttribute('opacity', '0.6');
-              el.setAttribute('stroke', '#dc2626'); 
+              el.setAttribute('stroke', '#dc2626');
               el.setAttribute('stroke-width', '1');
             } else {
-              el.setAttribute('fill', ann.colorHex); 
+              el.setAttribute('fill', ann.colorHex);
               el.setAttribute('opacity', '0.45');
             }
           } else if (ann.type === 'underline') {
             el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             el.setAttribute('x1', sx); el.setAttribute('y1', sy + sh - 1);
             el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + sh - 1);
-            // Uso da cor vibrante
-            el.setAttribute('stroke', ann.vibrantHex || '#eab308'); 
+            el.setAttribute('stroke', ann.vibrantHex || '#eab308');
             el.setAttribute('stroke-width', '2');
           } else if (ann.type === 'strike') {
             el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -683,9 +783,8 @@
             el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + (sh / 2));
             el.setAttribute('stroke', '#ef4444'); el.setAttribute('stroke-width', '1.5');
           }
-
           if (el) {
-            el.style.pointerEvents = 'auto'; 
+            el.style.pointerEvents = 'auto';
             el.style.cursor = 'pointer';
             el.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
             svg.appendChild(el);
@@ -697,62 +796,53 @@
     function getCommentIndices() {
       let map = {};
       let idx = 1;
-      
       let sorted = [...annotations].sort((a, b) => {
-          if (a.page !== b.page) return a.page - b.page;
-          return a.rects[0].y - b.rects[0].y;
+        if (a.page !== b.page) return a.page - b.page;
+        return a.rects[0].y - b.rects[0].y;
       });
-
       sorted.forEach(a => {
-          if (a.type === 'postit' || (a.commentText && a.commentText.trim() !== '')) {
-              map[a.id] = idx++;
-          }
+        if (a.type === 'postit' || (a.commentText && a.commentText.trim() !== '')) {
+          map[a.id] = idx++;
+        }
       });
       return map;
     }
 
-    window.updateCharCount = function(id, max) {
-        const ta = document.getElementById(`textarea-${id}`);
-        const warning = document.getElementById(`char-warning-${id}`);
-        if (ta && warning) {
-            if (max <= 300 && ta.value.length >= max - 25) {
-                warning.style.display = 'block';
-                warning.innerText = `Atenção: Limite de ${max} caracteres se aproximando (${ta.value.length}/${max}).`;
-            } else {
-                warning.style.display = 'none';
-            }
+    window.updateCharCount = function (id, max) {
+      const ta = document.getElementById(`textarea-${id}`);
+      const warning = document.getElementById(`char-warning-${id}`);
+      if (ta && warning) {
+        if (max <= 300 && ta.value.length >= max - 25) {
+          warning.style.display = 'block';
+          warning.innerText = `Atenção: Limite de ${max} caracteres se aproximando (${ta.value.length}/${max}).`;
+        } else {
+          warning.style.display = 'none';
         }
+      }
     };
 
     function updateSidebar() {
       const container = document.getElementById('sidebarList');
       container.innerHTML = '';
-
       if (annotations.length === 0) {
         container.innerHTML = '<p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF ou insira um post-it para marcar e comentar.</p>';
         return;
       }
-
       const indexMap = getCommentIndices();
       const reversedAnns = [...annotations].reverse();
-
       reversedAnns.forEach(ann => {
         const item = document.createElement('div');
         item.id = `sidebar-item-${ann.id}`;
         item.className = "bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm transition-all duration-300";
-        
         let typeLabel = "Anotação";
         if (ann.type === 'postit') typeLabel = "Post-it";
         else if (ann.type === 'comment') typeLabel = "Comentário isolado";
         else if (ann.type === 'highlight') typeLabel = "Grifo";
         else if (ann.type === 'underline') typeLabel = "Sublinhado";
         else if (ann.type === 'strike') typeLabel = "Tachado";
-
         const isOfficialComment = ann.type === 'postit' || (ann.commentText && ann.commentText.trim() !== '');
         const cmPrefix = isOfficialComment ? `<span class="text-blue-600 font-black mr-1">[CM${indexMap[ann.id]}]</span>` : '';
-
         const snippet = ann.text ? (ann.text.length > 50 ? ann.text.substring(0, 50) + "..." : ann.text) : null;
-
         let html = `
           <div class="flex justify-between items-center mb-2">
             <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">${cmPrefix}${typeLabel} <span class="font-normal normal-case text-gray-400 ml-1">(Pág. ${ann.page})</span></span>
@@ -761,13 +851,10 @@
             </button>
           </div>
         `;
-
         if (snippet) {
-           html += `<div class="text-gray-500 text-xs border-l-2 border-gray-300 pl-2 italic mb-3">"${snippet}"</div>`;
+          html += `<div class="text-gray-500 text-xs border-l-2 border-gray-300 pl-2 italic mb-3">"${snippet}"</div>`;
         }
-
-        const maxLen = ann.type === 'postit' ? 280 : 6087; // Limite restrito no post-it
-
+        const maxLen = ann.type === 'postit' ? 280 : 6087;
         if (ann.isEditing) {
           html += `
             <textarea id="textarea-${ann.id}" maxlength="${maxLen}" oninput="updateCharCount(${ann.id}, ${maxLen})" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="${ann.type === 'postit' ? 'Escreva no seu post-it...' : 'Adicione seu comentário (opcional)...'}">${ann.commentText}</textarea>
@@ -778,49 +865,43 @@
           const hasText = ann.commentText && ann.commentText.trim() !== '';
           const displayTxt = hasText ? ann.commentText : '<i class="text-gray-400 text-xs">Sem comentário adicionado.</i>';
           const bgClass = ann.type === 'postit' ? 'bg-yellow-100/50 border-yellow-200 font-serif' : 'bg-white border-gray-100';
-
           html += `
             <div class="text-sm text-gray-800 border p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap ${bgClass}">${displayTxt}</div>
             <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
           `;
         }
-
         item.innerHTML = html;
-        container.appendChild(item); 
-        
-        // Ativar checagem inicial se estiver editando com texto longo (útil se o limite fosse dinâmico)
+        container.appendChild(item);
         if (ann.isEditing) updateCharCount(ann.id, maxLen);
       });
     }
 
-    window.saveComment = function(id) {
+    window.saveComment = function (id) {
       const ann = annotations.find(a => a.id === id);
-      if(ann) {
+      if (ann) {
         ann.commentText = document.getElementById(`textarea-${id}`).value;
         ann.isEditing = false;
         redrawAnnotations();
         updateSidebar();
       }
     };
-
-    window.editComment = function(id) {
+    window.editComment = function (id) {
       const ann = annotations.find(a => a.id === id);
-      if(ann) {
+      if (ann) {
         ann.isEditing = true;
         updateSidebar();
       }
     };
-
-    window.removeAnnotation = function(id) {
+    window.removeAnnotation = function (id) {
       annotations = annotations.filter(a => a.id !== id);
       redrawAnnotations();
       updateSidebar();
     };
 
+    // ===== Download final =====
     function splitTextToLines(text, maxWidth, font, fontSize) {
-      const rawLines = text.split('\n'); 
+      const rawLines = text.split('\n');
       let finalLines = [];
-
       rawLines.forEach(rawLine => {
         if (rawLine.trim() === '') {
           finalLines.push('');
@@ -828,11 +909,9 @@
         }
         const words = rawLine.split(' ');
         let currentLine = words[0] || '';
-        
         for (let i = 1; i < words.length; i++) {
           const word = words[i];
           const width = font.widthOfTextAtSize(currentLine + " " + word, fontSize);
-          
           if (width < maxWidth) {
             currentLine += " " + word;
           } else {
@@ -847,17 +926,15 @@
 
     async function downloadFinalPDF() {
       let bufferToExport = rawFileBuffer.slice(0);
-      
       if (pdfWasNumbered) {
         bufferToExport = await applyNumbering(bufferToExport);
       }
-
       const freshPdfLibDoc = await PDFLib.PDFDocument.load(bufferToExport);
       const pages = freshPdfLibDoc.getPages();
       const font = await freshPdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
       const fontBold = await freshPdfLibDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
       const fontSerif = await freshPdfLibDoc.embedFont(PDFLib.StandardFonts.TimesRoman);
-      
+
       const EXTRA_MARGIN_WIDTH = 350;
       const indexMap = getCommentIndices();
 
@@ -865,39 +942,31 @@
         const page = pages[pageIdx];
         const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
         const { width: originalWidth, height: pageHeight } = page.getSize();
-        
         const annotationsWithComments = pageAnns.filter(a => a.type !== 'postit' && a.commentText && a.commentText.trim() !== '');
-        
         if (annotationsWithComments.length > 0) {
           page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
           page.drawRectangle({ x: originalWidth, y: 0, width: EXTRA_MARGIN_WIDTH, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
         }
-
         pageAnns.sort((a, b) => a.rects[0].y - b.rects[0].y);
-        let nextAvailableY = pageHeight - 20; 
+        let nextAvailableY = pageHeight - 20;
 
         pageAnns.forEach(ann => {
           const cmIndex = indexMap[ann.id];
-          let maxRightX = 0; 
+          let maxRightX = 0;
           let basePdfY = 0;
 
           if (ann.type !== 'postit') {
             const [r, g, b] = ann.colorRGB;
-            // Coletar versão vibrante para underline (ou fallback se anotação for antiga)
-            const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03]; 
-
+            const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03];
             ann.rects.forEach(rect => {
-              // Os rects já estão em escala base do PDF original (scale = 1), não precisamos mais dividir pelo scale atual da tela
               const pdfX = rect.x;
               const pdfY = pageHeight - rect.y;
               const pdfW = rect.w;
               const pdfH = rect.h;
-              
               if ((pdfX + pdfW) > maxRightX) {
                 maxRightX = pdfX + pdfW;
-                basePdfY = pdfY - (pdfH / 2); 
+                basePdfY = pdfY - (pdfH / 2);
               }
-
               if (ann.type === 'comment') {
                 page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
               } else if (ann.type === 'highlight') {
@@ -914,59 +983,46 @@
             const boxPadding = 8;
             const boxMarginLeft = 20;
             const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;
-            
-            const title = `Comentário [CM${cmIndex}]: `; 
-            
+            const title = `Comentário [CM${cmIndex}]: `;
             const fontSize = 7;
             const lineHeight = 10;
             const lines = splitTextToLines(ann.commentText, contentWidth, font, fontSize);
-            
-            const textHeight = (lines.length + 1) * lineHeight; 
+            const textHeight = (lines.length + 1) * lineHeight;
             const boxHeight = textHeight + (boxPadding * 2);
-            
-            let targetY = nextAvailableY; 
-            nextAvailableY = targetY - boxHeight - 10; 
-
+            let targetY = nextAvailableY;
+            nextAvailableY = targetY - boxHeight - 10;
             const boxLeftX = originalWidth + boxMarginLeft;
             const boxBottomY = targetY - boxHeight;
-
             page.drawLine({ start: { x: maxRightX, y: basePdfY }, end: { x: boxLeftX, y: targetY - (boxHeight / 2) }, thickness: 1, color: PDFLib.rgb(0.5, 0.5, 0.5) });
             page.drawRectangle({ x: boxLeftX, y: boxBottomY, width: contentWidth + (boxPadding * 2), height: boxHeight, color: PDFLib.rgb(1, 1, 1), borderColor: PDFLib.rgb(0.6, 0.6, 0.6), borderWidth: 1 });
-
             page.drawText(title, { x: boxLeftX + boxPadding, y: boxBottomY + boxHeight - boxPadding - fontSize, size: fontSize, font: fontBold, color: PDFLib.rgb(0.1, 0.1, 0.1) });
-
             let currentTextY = boxBottomY + boxHeight - boxPadding - fontSize - lineHeight;
             lines.forEach(line => {
               page.drawText(line, { x: boxLeftX + boxPadding, y: currentTextY, size: fontSize, font: font, color: PDFLib.rgb(0.2, 0.2, 0.2) });
               currentTextY -= lineHeight;
             });
-          } 
-          
-          else if (ann.type === 'postit') {
+          } else if (ann.type === 'postit') {
             const pdfX = ann.rects[0].x;
             const pdfY = pageHeight - ann.rects[0].y;
-            
             const postItWidth = 140;
             const fontSize = 9;
             const lineHeight = 12;
             const textContent = (ann.commentText && ann.commentText.trim() !== '') ? ann.commentText : `Comentário [CM${cmIndex}] (Vazio)`;
             const lines = splitTextToLines(textContent, postItWidth - 16, fontSerif, fontSize);
             const postItHeight = (lines.length * lineHeight) + 16;
-            
             page.drawRectangle({
-                x: pdfX,
-                y: pdfY - postItHeight,
-                width: postItWidth,
-                height: postItHeight,
-                color: PDFLib.rgb(0.99, 0.94, 0.54), 
-                borderColor: PDFLib.rgb(0.9, 0.8, 0.2),
-                borderWidth: 1
+              x: pdfX,
+              y: pdfY - postItHeight,
+              width: postItWidth,
+              height: postItHeight,
+              color: PDFLib.rgb(0.99, 0.94, 0.54),
+              borderColor: PDFLib.rgb(0.9, 0.8, 0.2),
+              borderWidth: 1
             });
-            
             let textY = pdfY - 14;
             lines.forEach(line => {
-                page.drawText(line, { x: pdfX + 8, y: textY, size: fontSize, font: fontSerif, color: PDFLib.rgb(0.1, 0.1, 0.1) });
-                textY -= lineHeight;
+              page.drawText(line, { x: pdfX + 8, y: textY, size: fontSize, font: fontSerif, color: PDFLib.rgb(0.1, 0.1, 0.1) });
+              textY -= lineHeight;
             });
           }
         });

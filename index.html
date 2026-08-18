@@ -404,14 +404,14 @@
         // Verificar se é escaneado (sem texto)
         const scanned = await isPDFScanned(pdfDoc);
         if (scanned) {
-          setStatus("PDF escaneado detectado. Iniciando OCR...", 'default');
+          setStatus("Scanned PDF detected. Starting OCR...", 'default');
           ocrTextContents = await performOCR(pdfDoc);
           isOcrDone = true;
           setStatus("OCR concluído! Pronto para revisão.", 'success');
         } else {
           ocrTextContents = null;
           isOcrDone = false;
-          setStatus("PDF com texto detectado. Pronto para revisão.", 'success');
+          setStatus("PDF with detected text. Ready for review!", 'success');
         }
 
         // Esconder tela inicial e mostrar workspace

@@ -26,7 +26,7 @@
       display: inline-block;
       box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
       margin-bottom: 20px;
-      background: white; /* PDF page stays white */
+      background: white;
     }
     canvas {
       display: block;
@@ -206,6 +206,7 @@
       <div id="ocrProgressBar"><div id="ocrProgressFill" style="width:0%"></div></div>
     </div>
 
+    <!-- Mantendo seus links de autoria intactos -->
     <div class="mt-8 pt-5 border-t border-gray-100 dark:border-gray-800 w-full flex flex-col items-center gap-3">
       <p class="text-xs text-gray-500 dark:text-gray-400">
         Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
@@ -799,7 +800,6 @@
       }
     });
 
-    // Funções do bloco flutuante de comentários
     function openFloatingBox(id, x, y) {
       activeFloatingCommentId = id;
       const box = document.getElementById('floatingCommentBox');
@@ -808,7 +808,6 @@
 
       ta.value = ann.commentText || '';
       
-      // Ajuste para não sair da tela
       const maxW = window.innerWidth;
       const maxH = window.innerHeight;
       if (x + 300 > maxW) x = maxW - 310;
@@ -848,7 +847,6 @@
       }
       
       const newId = Date.now();
-      const canComment = (type === 'comment' || type === 'postit');
       
       annotations.push({
         id: newId,
@@ -861,7 +859,7 @@
         vibrantRGB: activeVibrantRGB,
         text: currentSelectionData.text,
         commentText: '',
-        isEditing: canComment
+        isEditing: true // Todas as ferramentas iniciam no modo de edição
       });
       
       document.getElementById('selectionPopup').style.display = 'none';
@@ -870,9 +868,7 @@
       redrawAnnotations();
       updateSidebar();
       
-      if (canComment) {
-        openFloatingBox(newId, currentSelectionData.mouseX, currentSelectionData.mouseY);
-      }
+      openFloatingBox(newId, currentSelectionData.mouseX, currentSelectionData.mouseY);
       
       currentSelectionData = null;
     }
@@ -948,11 +944,10 @@
         });
         group.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
+        // Todos os elementos (grifo, tachado, etc) abrem o comentário agora
         group.onmousedown = (e) => { 
           e.stopPropagation(); 
-          if (ann.type === 'comment' || ann.type === 'postit') {
-             openFloatingBox(ann.id, e.pageX, e.pageY);
-          }
+          openFloatingBox(ann.id, e.pageX, e.pageY);
           scrollToSidebar(ann.id); 
         };
 
@@ -968,7 +963,7 @@
               el.setAttribute('x', sx); el.setAttribute('y', sy);
               el.setAttribute('width', sw); el.setAttribute('height', sh);
               if (ann.type === 'comment') {
-                el.setAttribute('fill', '#bfdbfe'); // Azul bebê sólido
+                el.setAttribute('fill', '#bfdbfe'); 
                 el.setAttribute('opacity', '0.5');
               } else {
                 el.setAttribute('fill', ann.colorHex);
@@ -1043,8 +1038,8 @@
         else if (ann.type === 'underline') typeLabel = "Sublinhado";
         else if (ann.type === 'strike') typeLabel = "Tachado";
         
-        const canComment = (ann.type === 'comment' || ann.type === 'postit');
-        const isOfficialComment = canComment && (ann.type === 'postit' || (ann.commentText && ann.commentText.trim() !== ''));
+        // Todas as ferramentas criam a área de comentário
+        const isOfficialComment = ann.type === 'postit' || (ann.commentText && ann.commentText.trim() !== '');
         const cmPrefix = isOfficialComment ? `<span class="text-blue-600 font-black mr-1">[CM${indexMap[ann.id]}]</span>` : '';
         const snippet = ann.text ? (ann.text.length > 50 ? ann.text.substring(0, 50) + "..." : ann.text) : null;
         
@@ -1061,27 +1056,26 @@
           html += `<div class="text-gray-500 dark:text-gray-400 text-xs border-l-2 border-gray-300 dark:border-gray-600 pl-2 italic mb-3">"${snippet}"</div>`;
         }
         
-        if (canComment) {
-          const maxLen = ann.type === 'postit' ? 280 : 6087;
-          if (ann.isEditing) {
-            html += `
-              <textarea id="textarea-${ann.id}" maxlength="${maxLen}" oninput="updateCharCount(${ann.id}, ${maxLen})" class="w-full text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none mb-2 min-h-[80px]" placeholder="${ann.type === 'postit' ? 'Escreva no seu post-it...' : 'Adicione seu comentário...'}">${ann.commentText}</textarea>
-              <div id="char-warning-${ann.id}" class="text-[10px] font-bold text-red-600 hidden text-right mb-2">Atenção: Limite de caracteres próximo.</div>
-              <button onclick="saveSidebarComment(${ann.id})" class="w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 text-xs font-bold py-2 rounded-lg transition-colors">Salvar</button>
-            `;
-          } else {
-            const hasText = ann.commentText && ann.commentText.trim() !== '';
-            const displayTxt = hasText ? ann.commentText : '<i class="text-gray-400 text-xs">Sem comentário adicionado.</i>';
-            const bgClass = ann.type === 'postit' ? 'bg-yellow-100/50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700 font-serif' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700';
-            html += `
-              <div class="text-sm text-gray-800 dark:text-gray-200 border p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap ${bgClass}">${displayTxt}</div>
-              <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
-            `;
-          }
+        const maxLen = ann.type === 'postit' ? 280 : 6087;
+        if (ann.isEditing) {
+          html += `
+            <textarea id="textarea-${ann.id}" maxlength="${maxLen}" oninput="updateCharCount(${ann.id}, ${maxLen})" class="w-full text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none mb-2 min-h-[80px]" placeholder="${ann.type === 'postit' ? 'Escreva no seu post-it...' : 'Adicione seu comentário...'}">${ann.commentText}</textarea>
+            <div id="char-warning-${ann.id}" class="text-[10px] font-bold text-red-600 hidden text-right mb-2">Atenção: Limite de caracteres próximo.</div>
+            <button onclick="saveSidebarComment(${ann.id})" class="w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 text-xs font-bold py-2 rounded-lg transition-colors">Salvar</button>
+          `;
+        } else {
+          const hasText = ann.commentText && ann.commentText.trim() !== '';
+          const displayTxt = hasText ? ann.commentText : '<i class="text-gray-400 text-xs">Sem comentário adicionado.</i>';
+          const bgClass = ann.type === 'postit' ? 'bg-yellow-100/50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700 font-serif' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700';
+          html += `
+            <div class="text-sm text-gray-800 dark:text-gray-200 border p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap ${bgClass}">${displayTxt}</div>
+            <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
+          `;
         }
+        
         item.innerHTML = html;
         container.appendChild(item);
-        if (canComment && ann.isEditing) updateCharCount(ann.id, maxLen);
+        if (ann.isEditing) updateCharCount(ann.id, maxLen);
       });
     }
 
@@ -1148,8 +1142,8 @@
         const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
         const { width: originalWidth, height: pageHeight } = page.getSize();
         
-        // Apenas anotações com comentários (exclui grifos simples) ganham bloco lateral no PDF
-        const annotationsWithComments = pageAnns.filter(a => (a.type === 'comment' || a.type === 'postit') && a.commentText && a.commentText.trim() !== '');
+        // Qualquer anotação (menos postit, tratado à parte) com texto gerará margem
+        const annotationsWithComments = pageAnns.filter(a => a.type !== 'postit' && a.commentText && a.commentText.trim() !== '');
         
         if (annotationsWithComments.length > 0) {
           page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
@@ -1192,7 +1186,7 @@
             basePdfY = totalY / ann.rects.length; 
           }
 
-          if (ann.type === 'comment' && ann.commentText && ann.commentText.trim() !== '') {
+          if (ann.type !== 'postit' && ann.commentText && ann.commentText.trim() !== '') {
             const boxPadding = 8;
             const boxMarginLeft = 20;
             const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;

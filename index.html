@@ -13,7 +13,6 @@
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
   <style>
-    /* Estilos idênticos aos anteriores */
     .pdf-page-wrapper {
       position: relative;
       display: inline-block;
@@ -112,9 +111,29 @@
       background: #3b82f6;
       transition: width 0.3s;
     }
+    /* Estilo para a etiqueta de Hover (Tooltip) */
+    #annotationTooltip {
+      position: fixed;
+      background: rgba(17, 24, 39, 0.95);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+      max-width: 250px;
+      white-space: pre-wrap;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-all duration-300" id="mainBody">
+
+  <!-- Tooltip flutuante para comentários -->
+  <div id="annotationTooltip"></div>
 
   <div id="selectionPopup">
     <div class="popup-row gap-1">
@@ -140,7 +159,7 @@
   </div>
 
   <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
-    <img src="logo.png" alt="Logo Peer Reviewed PDF" class="h-28 w-auto object-contain mx-auto mb-4" />
+    <img src="logo.png" alt="Logo Peer Reviewed PDF" class="h-28 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'" />
     <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
     <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
@@ -162,13 +181,14 @@
         Apenas numerar linhas (Download)
       </button>
     </div>
-    
+   
     <div id="statusMsg" class="text-xs font-medium mt-4 h-4"></div>
     <div id="ocrProgress" class="mt-3">
       <div class="flex justify-between text-xs text-gray-500"><span id="ocrLabel">Processando OCR...</span><span id="ocrPercent">0%</span></div>
       <div id="ocrProgressBar"><div id="ocrProgressFill" style="width:0%"></div></div>
     </div>
 
+    <!-- Mantendo seus links de autoria intactos -->
     <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
       <p class="text-xs text-gray-500">
         Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
@@ -251,7 +271,6 @@
   </div>
 
   <script>
-    // ===== Variáveis globais =====
     let rawFileBuffer = null;
     let fileName = "";
     let pdfjsDoc = null;
@@ -270,10 +289,9 @@
     let annotations = [];
     let scale = 1.3;
     let isPostItMode = false;
-    let activeTool = null; // Guarda a ferramenta selecionada na barra lateral
+    let activeTool = null; 
     let currentSelectionData = null;
 
-    // ===== Funções de UI =====
     function setStatus(text, type = 'default') {
       const el = document.getElementById('statusMsg');
       el.innerText = text;
@@ -304,7 +322,6 @@
       reader.readAsArrayBuffer(file);
     }
 
-    // ===== Detecção e OCR =====
     async function isPDFScanned(pdfDoc) {
       try {
         const page = await pdfDoc.getPage(1);
@@ -433,7 +450,6 @@
       return ocrResults;
     }
 
-    // ===== Numeração de linhas =====
     async function applyNumbering(buffer, textContentsByPage) {
       const tempLibDoc = await PDFLib.PDFDocument.load(buffer.slice(0));
       const font = await tempLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
@@ -473,7 +489,6 @@
       return await tempLibDoc.save();
     }
 
-    // ===== Processamento principal =====
     async function startProcess(mode) {
       if (!rawFileBuffer) return;
       setStatus("Processando documento...");
@@ -527,7 +542,6 @@
       }
     }
 
-    // ===== Renderização das páginas =====
     async function renderAllPages() {
       const viewer = document.getElementById('pdfViewer');
       viewer.innerHTML = '';
@@ -603,7 +617,6 @@
       }
     }
 
-    // ===== Seleção e Alternância de Ferramentas =====
     function selectTool(type) {
       if (isPostItMode) {
         togglePostIt();
@@ -617,7 +630,6 @@
 
       updateToolButtonsUI();
 
-      // Se já houver um texto selecionado no momento em que a ferramenta for clicada, aplica imediatamente
       if (activeTool && currentSelectionData) {
         applyAnnotation(activeTool);
       }
@@ -638,18 +650,17 @@
       });
     }
 
-    // ===== Controles de zoom =====
     async function changeZoom(delta) {
       if (!pdfjsDoc) return;
       let newScale = scale + delta;
-      if (newScale < 0.5) newScale = 0.5;
-      if (newScale > 3.0) newScale = 3.0;
+      // LIMITE MÍNIMO DE ZOOM REDUZIDO PARA 10% (0.1)
+      if (newScale < 0.1) newScale = 0.1; 
+      if (newScale > 4.0) newScale = 4.0;
       scale = newScale;
       document.getElementById('zoomLevel').innerText = Math.round(scale * 100) + '%';
       await renderAllPages();
     }
 
-    // ===== Modo Post-it =====
     function togglePostIt() {
       if (activeTool) {
         activeTool = null;
@@ -714,7 +725,6 @@
       if (hex === '#fecaca') btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-red-400');
     }
 
-    // ===== Seleção de texto =====
     function handleTextSelection(e) {
       if (isPostItMode) return;
       const selection = window.getSelection();
@@ -743,7 +753,6 @@
           text: selection.toString()
         };
 
-        // Se já houver uma ferramenta ativa selecionada no painel lateral, executa-a imediatamente
         if (activeTool) {
           applyAnnotation(activeTool);
         } else {
@@ -796,7 +805,6 @@
       }, 50);
     }
 
-    // ===== Anotações e sidebar =====
     function scrollToSidebar(id) {
       const item = document.getElementById(`sidebar-item-${id}`);
       if (item) {
@@ -808,20 +816,10 @@
       }
     }
 
-    function getUnifiedRect(rects) {
-      if (!rects || rects.length === 0) return null;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const r of rects) {
-        if (r.x < minX) minX = r.x;
-        if (r.y < minY) minY = r.y;
-        if (r.x + r.w > maxX) maxX = r.x + r.w;
-        if (r.y + r.h > maxY) maxY = r.y + r.h;
-      }
-      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }
-
     function redrawAnnotations() {
       document.querySelectorAll('.annotationLayer').forEach(svg => svg.innerHTML = '');
+      const tooltip = document.getElementById('annotationTooltip');
+      
       annotations.forEach(ann => {
         const svg = document.getElementById(`svgOverlay-${ann.page}`);
         if (!svg) return;
@@ -854,47 +852,68 @@
           return;
         }
 
-        const unified = getUnifiedRect(ann.rects);
-        if (!unified) return;
-        const sx = unified.x * scale;
-        const sy = unified.y * scale;
-        const sw = unified.w * scale;
-        const sh = unified.h * scale;
-
-        let el;
-        if (ann.type === 'highlight' || ann.type === 'comment') {
-          el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          el.setAttribute('x', sx); el.setAttribute('y', sy);
-          el.setAttribute('width', sw); el.setAttribute('height', sh);
-          if (ann.type === 'comment') {
-            el.setAttribute('fill', '#fee2e2');
-            el.setAttribute('opacity', '0.6');
-            el.setAttribute('stroke', '#dc2626');
-            el.setAttribute('stroke-width', '1');
-          } else {
-            el.setAttribute('fill', ann.colorHex);
-            el.setAttribute('opacity', '0.35');
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.style.pointerEvents = 'auto';
+        group.style.cursor = 'pointer';
+        
+        // ETIQUETA-POPUP (HOVER-MOUSE)
+        group.addEventListener('mouseenter', (e) => {
+          if (ann.commentText && ann.commentText.trim() !== '') {
+            tooltip.innerText = ann.commentText;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
           }
-        } else if (ann.type === 'underline') {
-          el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          el.setAttribute('x1', sx); el.setAttribute('y1', sy + sh - 1);
-          el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + sh - 1);
-          el.setAttribute('stroke', ann.vibrantHex || '#eab308');
-          el.setAttribute('stroke-width', '2');
-        } else if (ann.type === 'strike') {
-          el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          el.setAttribute('x1', sx); el.setAttribute('y1', sy + (sh / 2));
-          el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + (sh / 2));
-          el.setAttribute('stroke', '#ef4444');
-          el.setAttribute('stroke-width', '1.5');
-        }
+        });
+        group.addEventListener('mousemove', (e) => {
+          if (tooltip.style.display === 'block') {
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+          }
+        });
+        group.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
 
-        if (el) {
-          el.style.pointerEvents = 'auto';
-          el.style.cursor = 'pointer';
-          el.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
-          svg.appendChild(el);
-        }
+        group.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
+
+        ann.rects.forEach(r => {
+            const sx = r.x * scale;
+            const sy = r.y * scale;
+            const sw = r.w * scale;
+            const sh = r.h * scale;
+
+            let el;
+            if (ann.type === 'highlight' || ann.type === 'comment') {
+              el = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+              el.setAttribute('x', sx); el.setAttribute('y', sy);
+              el.setAttribute('width', sw); el.setAttribute('height', sh);
+              if (ann.type === 'comment') {
+                el.setAttribute('fill', '#fee2e2');
+                el.setAttribute('opacity', '0.6');
+                el.setAttribute('stroke', '#dc2626');
+                el.setAttribute('stroke-width', '1');
+              } else {
+                el.setAttribute('fill', ann.colorHex);
+                el.setAttribute('opacity', '0.35');
+              }
+            } else if (ann.type === 'underline') {
+              el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              el.setAttribute('x1', sx); el.setAttribute('y1', sy + sh - 1);
+              el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + sh - 1);
+              el.setAttribute('stroke', ann.vibrantHex || '#eab308');
+              el.setAttribute('stroke-width', '2');
+            } else if (ann.type === 'strike') {
+              el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              el.setAttribute('x1', sx); el.setAttribute('y1', sy + (sh / 2));
+              el.setAttribute('x2', sx + sw); el.setAttribute('y2', sy + (sh / 2));
+              el.setAttribute('stroke', '#ef4444');
+              el.setAttribute('stroke-width', '1.5');
+            }
+            if (el) group.appendChild(el);
+        });
+        
+        svg.appendChild(group);
       });
     }
 
@@ -999,11 +1018,11 @@
     };
     window.removeAnnotation = function (id) {
       annotations = annotations.filter(a => a.id !== id);
+      document.getElementById('annotationTooltip').style.display = 'none'; // Esconde o tooltip ao excluir
       redrawAnnotations();
       updateSidebar();
     };
 
-    // ===== Download final =====
     function splitTextToLines(text, maxWidth, font, fontSize) {
       const rawLines = text.split('\n');
       let finalLines = [];
@@ -1059,28 +1078,33 @@
           const cmIndex = indexMap[ann.id];
           let maxRightX = 0;
           let basePdfY = 0;
+          let totalY = 0;
 
           if (ann.type !== 'postit') {
-            const unified = getUnifiedRect(ann.rects);
-            if (!unified) return;
-            const pdfX = unified.x;
-            const pdfY = pageHeight - unified.y;
-            const pdfW = unified.w;
-            const pdfH = unified.h;
-            const [r, g, b] = ann.colorRGB;
-            const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03];
+            ann.rects.forEach(r => {
+                const pdfX = r.x;
+                const pdfY = pageHeight - r.y;
+                const pdfW = r.w;
+                const pdfH = r.h;
+                const [rColor, gColor, bColor] = ann.colorRGB;
+                const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03];
 
-            if (ann.type === 'comment') {
-              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
-            } else if (ann.type === 'highlight') {
-              page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(r, g, b), opacity: 0.35 });
-            } else if (ann.type === 'underline') {
-              page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(vRGB[0], vRGB[1], vRGB[2]) });
-            } else if (ann.type === 'strike') {
-              page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
-            }
-            maxRightX = pdfX + pdfW;
-            basePdfY = pdfY - (pdfH / 2);
+                if (ann.type === 'comment') {
+                  page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
+                } else if (ann.type === 'highlight') {
+                  page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(rColor, gColor, bColor), opacity: 0.35 });
+                } else if (ann.type === 'underline') {
+                  page.drawLine({ start: { x: pdfX, y: pdfY - pdfH }, end: { x: pdfX + pdfW, y: pdfY - pdfH }, thickness: 1.5, color: PDFLib.rgb(vRGB[0], vRGB[1], vRGB[2]) });
+                } else if (ann.type === 'strike') {
+                  page.drawLine({ start: { x: pdfX, y: pdfY - (pdfH / 2) }, end: { x: pdfX + pdfW, y: pdfY - (pdfH / 2) }, thickness: 1.5, color: PDFLib.rgb(0.9, 0.2, 0.2) });
+                }
+                
+                if ((pdfX + pdfW) > maxRightX) {
+                    maxRightX = pdfX + pdfW;
+                }
+                totalY += (pdfY - (pdfH / 2));
+            });
+            basePdfY = totalY / ann.rects.length; 
           }
 
           if (ann.type !== 'postit' && ann.commentText && ann.commentText.trim() !== '') {

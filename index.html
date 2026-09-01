@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Revisar e Numerar PDF</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -18,7 +26,7 @@
       display: inline-block;
       box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
       margin-bottom: 20px;
-      background: white;
+      background: white; /* PDF page stays white */
     }
     canvas {
       display: block;
@@ -49,17 +57,16 @@
       z-index: 10;
     }
     #scrollContainer::-webkit-scrollbar { width: 10px; }
-    #scrollContainer::-webkit-scrollbar-track { background: #f1f1f1; }
+    #scrollContainer::-webkit-scrollbar-track { background: transparent; }
     #scrollContainer::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; }
     #scrollContainer::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
     #sidebarList::-webkit-scrollbar { width: 6px; }
     #sidebarList::-webkit-scrollbar-track { background: transparent; }
     #sidebarList::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+    .dark #sidebarList::-webkit-scrollbar-thumb { background: #4b5563; }
+    
     #selectionPopup {
       position: absolute;
-      background: white;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
       border-radius: 0.5rem;
       display: none;
       z-index: 1000;
@@ -73,22 +80,16 @@
       padding: 4px;
     }
     .popup-row.bottom-row {
-      border-top: 1px solid #f3f4f6;
       padding: 6px 8px;
     }
     .popup-btn {
       padding: 8px 12px;
       cursor: pointer;
-      color: #4b5563;
       transition: all 0.2s;
       display: flex;
       align-items: center;
       gap: 6px;
       border-radius: 0.375rem;
-    }
-    .popup-btn:hover {
-      background-color: #f3f4f6;
-      color: #111827;
     }
     .popup-btn svg { width: 18px; height: 18px; }
     .postit-cursor .textLayer {
@@ -111,7 +112,6 @@
       background: #3b82f6;
       transition: width 0.3s;
     }
-    /* Estilo para a etiqueta de Hover (Tooltip) */
     #annotationTooltip {
       position: fixed;
       background: rgba(17, 24, 39, 0.95);
@@ -128,123 +128,152 @@
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-all duration-300" id="mainBody">
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 min-h-screen flex flex-col items-center justify-center p-4 font-sans transition-colors duration-300" id="mainBody">
 
-  <!-- Tooltip flutuante para comentários -->
   <div id="annotationTooltip"></div>
 
-  <div id="selectionPopup">
+  <!-- Bloco flutuante de comentário -->
+  <div id="floatingCommentBox" class="hidden absolute z-[9999] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-xl p-4 w-72 flex flex-col gap-3 transition-all">
+    <div class="flex justify-between items-center">
+      <span class="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase">Escrever comentário</span>
+      <button onclick="closeFloatingBox()" class="text-gray-400 hover:text-red-500 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <textarea id="floatTextarea" class="w-full text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" placeholder="Digite aqui..."></textarea>
+    <button onclick="saveFloatingComment()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors shadow-sm">Salvar Comentário</button>
+  </div>
+
+  <!-- Popup de seleção -->
+  <div id="selectionPopup" class="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl border">
     <div class="popup-row gap-1">
-      <button class="popup-btn" onclick="applyAnnotation('comment')" title="Comentar">
+      <button class="popup-btn text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onclick="applyAnnotation('comment')" title="Comentar">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
       </button>
-      <button class="popup-btn" onclick="applyAnnotation('highlight')" title="Grifar">
+      <button class="popup-btn text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onclick="applyAnnotation('highlight')" title="Grifar">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
       </button>
-      <button class="popup-btn" onclick="applyAnnotation('underline')" title="Sublinhar">
+      <button class="popup-btn text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onclick="applyAnnotation('underline')" title="Sublinhar">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M12 16V4m-4 0h8"></path></svg>
       </button>
-      <button class="popup-btn" onclick="applyAnnotation('strike')" title="Tachar">
+      <button class="popup-btn text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onclick="applyAnnotation('strike')" title="Tachar">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M9 4v4m6-4v4m-3 4v8"></path></svg>
       </button>
     </div>
-    <div class="popup-row bottom-row">
-      <button class="popup-btn text-sm w-full" onclick="applyAnnotation('copy')">
+    <div class="popup-row bottom-row border-t border-gray-100 dark:border-gray-700">
+      <button class="popup-btn text-sm w-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" onclick="applyAnnotation('copy')">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
         Copiar texto
       </button>
     </div>
   </div>
 
-  <div id="startScreen" class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 flex flex-col items-center">
+  <!-- Tela Inicial -->
+  <div id="startScreen" class="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100 dark:border-gray-800 flex flex-col items-center">
     <img src="logo.png" alt="Logo Peer Reviewed PDF" class="h-28 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'" />
-    <h1 class="text-2xl font-bold text-gray-800 mb-1">Revisar e numerar PDF</h1>
-    <p class="text-gray-500 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
+    <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">Revisar e numerar PDF</h1>
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">Numere linhas e ancore comentários no seu documento PDF.</p>
 
-    <div class="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 mb-5 hover:border-red-400 transition-colors bg-gray-50/50">
+    <div class="w-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 mb-5 hover:border-red-400 dark:hover:border-red-500 transition-colors bg-gray-50/50 dark:bg-gray-800/50">
       <input type="file" id="pdfInput" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)" />
       <label for="pdfInput" class="cursor-pointer flex flex-col items-center">
         <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
         </svg>
-        <span class="text-gray-600 text-sm font-medium" id="fileName">Escolha um PDF</span>
+        <span class="text-gray-600 dark:text-gray-300 text-sm font-medium" id="fileName">Escolha um PDF</span>
       </label>
     </div>
 
     <div class="flex flex-col w-full gap-3">
-      <button id="btnBoth" onclick="startProcess('both')" disabled class="action-btn w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md">
+      <button id="btnBoth" onclick="startProcess('both')" disabled class="action-btn w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:text-gray-400 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md">
         Começar revisão
       </button>
-      <button id="btnNumberOnly" onclick="startProcess('number')" disabled class="action-btn w-full bg-gray-50 hover:bg-gray-100 border border-gray-200 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 text-gray-600 font-medium py-2 rounded-lg transition-all text-sm">
+      <button id="btnNumberOnly" onclick="startProcess('number')" disabled class="action-btn w-full bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:border-gray-200 dark:disabled:border-gray-800 disabled:text-gray-400 text-gray-600 dark:text-gray-300 font-medium py-2 rounded-lg transition-all text-sm">
         Apenas numerar linhas (Download)
       </button>
     </div>
    
     <div id="statusMsg" class="text-xs font-medium mt-4 h-4"></div>
     <div id="ocrProgress" class="mt-3">
-      <div class="flex justify-between text-xs text-gray-500"><span id="ocrLabel">Processando OCR...</span><span id="ocrPercent">0%</span></div>
+      <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400"><span id="ocrLabel">Processando OCR...</span><span id="ocrPercent">0%</span></div>
       <div id="ocrProgressBar"><div id="ocrProgressFill" style="width:0%"></div></div>
     </div>
 
-    <!-- Mantendo seus links de autoria intactos -->
-    <div class="mt-8 pt-5 border-t border-gray-100 w-full flex flex-col items-center gap-3">
-      <p class="text-xs text-gray-500">
+    <div class="mt-8 pt-5 border-t border-gray-100 dark:border-gray-800 w-full flex flex-col items-center gap-3">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
         Desenvolvido por <a href="https://mmillenaa.github.io/millena/" target="_blank" class="text-blue-600 font-semibold hover:underline">Millena Miranda Franco</a>
       </p>
-      <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-        <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 transition-colors">
+      <div class="flex flex-wrap justify-center items-center gap-4 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        <a href="http://buscatextual.cnpq.br/buscatextual/visualizacv.do?metodo=apresentar&id=K2465526E7" target="_blank" class="flex items-center gap-1.5 hover:text-blue-900 dark:hover:text-blue-400 transition-colors">
           <img src="https://ppghp.unespar.edu.br/imagens/plataforma-lattes-logo.jpg" alt="Lattes" class="h-4 w-auto rounded-sm object-contain" /> CV Lattes
         </a>
-        <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 transition-colors">
+        <a href="https://orcid.org/0000-0002-0292-0797" target="_blank" class="flex items-center gap-1.5 hover:text-green-700 dark:hover:text-green-400 transition-colors">
           <img src="https://upload.wikimedia.org/wikipedia/commons/0/06/ORCID_iD.svg" alt="ORCID" class="h-4 w-auto object-contain" /> ORCID
         </a>
-        <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 transition-colors">
+        <a href="https://bv.fapesp.br/pt/pesquisador/743339/millena-miranda-franco/" target="_blank" class="flex items-center gap-1.5 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
           <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Logo_BV_FAPESP.jpg" alt="BV FAPESP" class="h-4 w-auto rounded-sm object-contain" /> BV FAPESP
         </a>
       </div>
     </div>
   </div>
 
-  <div id="workspace" class="max-w-[95%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
-    <div class="md:col-span-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden h-[90vh] shadow-lg">
-      <div class="bg-white border-b border-gray-200 p-3 flex justify-between items-center px-4">
+  <div id="workspace" class="max-w-[98%] w-full grid-cols-1 md:grid-cols-4 gap-6 hidden">
+    <!-- Viewer Principal -->
+    <div id="mainViewer" class="md:col-span-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden h-[95vh] shadow-lg transition-all duration-300">
+      <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center px-4">
         <div class="flex items-center gap-4">
-          <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
-            <button onclick="changeZoom(-0.2)" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition font-bold" title="Reduzir zoom">-</button>
-            <span id="zoomLevel" class="text-xs font-semibold text-gray-600 w-12 text-center">130%</span>
-            <button onclick="changeZoom(0.2)" class="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition font-bold" title="Aumentar zoom">+</button>
+          <div class="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
+            <button onclick="changeZoom(-0.1)" class="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-600 rounded shadow-sm text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition font-bold" title="Reduzir zoom">-</button>
+            <input type="number" id="zoomInput" value="130" onchange="setZoomManual(this.value)" class="w-12 text-xs font-semibold text-gray-600 dark:text-gray-200 bg-transparent border-none text-center p-0 focus:ring-0 outline-none" title="Digite a % de zoom e aperte Enter">
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-200 pr-1">%</span>
+            <button onclick="changeZoom(0.1)" class="w-7 h-7 flex items-center justify-center bg-white dark:bg-gray-600 rounded shadow-sm text-gray-600 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition font-bold" title="Aumentar zoom">+</button>
           </div>
           <span class="text-[11px] text-gray-400 hidden lg:inline">Use <b>Ctrl + F</b> para buscar.</span>
         </div>
-        <div class="text-sm text-gray-500 font-medium" id="pageIndicator">Carregando...</div>
+        <div class="flex items-center gap-4">
+          <div class="text-sm text-gray-500 dark:text-gray-400 font-medium" id="pageIndicator">Carregando...</div>
+          <button onclick="toggleSidebar()" class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-600 dark:text-gray-300 transition" title="Mostrar/Ocultar Painel Lateral">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+          <button onclick="toggleDarkMode()" class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-600 dark:text-gray-300 transition" title="Alternar Modo Noturno">
+            <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          </button>
+        </div>
       </div>
-      <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 relative" id="scrollContainer">
+      <div class="flex-1 overflow-auto p-8 flex flex-col items-center bg-gray-200 dark:bg-gray-900 relative" id="scrollContainer">
         <div id="pdfViewer" class="flex flex-col items-center gap-6 pb-10 w-full relative">
-          </div>
+        </div>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[90vh] overflow-hidden">
-      <div class="p-5 border-b border-gray-100 bg-gray-50 space-y-4">
+    <!-- Barra Lateral -->
+    <div id="sidebarPanel" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col h-[95vh] overflow-hidden transition-all duration-300">
+      <div class="p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 space-y-4">
         <div>
           <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Ferramentas</span>
           <div class="flex items-center gap-1.5">
-            <button id="tool-comment" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="selectTool('comment')" title="Comentar texto selecionado">
+            <button id="tool-comment" class="flex-1 flex justify-center items-center p-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all focus:outline-none" onclick="selectTool('comment')" title="Comentar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
             </button>
-            <button id="tool-highlight" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="selectTool('highlight')" title="Grifar texto selecionado">
+            <button id="tool-highlight" class="flex-1 flex justify-center items-center p-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all focus:outline-none" onclick="selectTool('highlight')" title="Grifar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
             </button>
-            <button id="tool-underline" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="selectTool('underline')" title="Sublinhar texto selecionado">
+            <button id="tool-underline" class="flex-1 flex justify-center items-center p-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all focus:outline-none" onclick="selectTool('underline')" title="Sublinhar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20h16M12 16V4m-4 0h8"></path></svg>
             </button>
-            <button id="tool-strike" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" onclick="selectTool('strike')" title="Tachar texto selecionado">
+            <button id="tool-strike" class="flex-1 flex justify-center items-center p-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all focus:outline-none" onclick="selectTool('strike')" title="Tachar texto selecionado">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M9 4v4m6-4v4m-3 4v8"></path></svg>
             </button>
-            <div class="w-px h-6 bg-gray-200 mx-0.5"></div>
-            <button onclick="togglePostIt()" id="btn-postit" class="flex-1 flex justify-center items-center p-2.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 text-gray-600 transition-all focus:outline-none" title="Adicionar post-it solto">
+            <div class="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
+            <button onclick="togglePostIt()" id="btn-postit" class="flex-1 flex justify-center items-center p-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all focus:outline-none" title="Adicionar post-it solto">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </button>
           </div>
@@ -259,10 +288,10 @@
           </div>
         </div>
       </div>
-      <div class="flex-1 overflow-y-auto p-4 bg-white space-y-3" id="sidebarList">
+      <div class="flex-1 overflow-y-auto p-4 bg-white dark:bg-gray-800 space-y-3" id="sidebarList">
         <p class="text-gray-400 text-sm text-center mt-8 px-4">Selecione o texto no PDF ou insira um post-it para marcar e comentar.</p>
       </div>
-      <div class="p-4 border-t border-gray-100 bg-white">
+      <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
         <button onclick="downloadFinalPDF()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
           ⬇️ Baixar PDF final
         </button>
@@ -291,6 +320,22 @@
     let isPostItMode = false;
     let activeTool = null; 
     let currentSelectionData = null;
+    let activeFloatingCommentId = null;
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    function toggleSidebar() {
+      const main = document.getElementById('mainViewer');
+      const side = document.getElementById('sidebarPanel');
+      side.classList.toggle('hidden');
+      if (side.classList.contains('hidden')) {
+        main.classList.replace('md:col-span-3', 'md:col-span-4');
+      } else {
+        main.classList.replace('md:col-span-4', 'md:col-span-3');
+      }
+    }
 
     function setStatus(text, type = 'default') {
       const el = document.getElementById('statusMsg');
@@ -298,7 +343,7 @@
       el.className = `text-xs font-medium mt-4 h-4 text-center w-full `;
       if (type === 'error') el.classList.add('text-red-600');
       else if (type === 'success') el.classList.add('text-green-600');
-      else el.classList.add('text-gray-500');
+      else el.classList.add('text-gray-500', 'dark:text-gray-400');
     }
 
     function updateOcrProgress(percent, label = 'Processando OCR...') {
@@ -345,14 +390,7 @@
         const width = (bbox.x1 - bbox.x0) / ocrScale;
         const height = (bbox.y1 - bbox.y0) / ocrScale;
         return {
-          str: word.text,
-          x: x0,
-          y: y0,      
-          baseY: y1,  
-          width: width,
-          height: height,
-          x1: x1,
-          y1: y1,
+          str: word.text, x: x0, y: y0, baseY: y1, width: width, height: height, x1: x1, y1: y1,
         };
       });
 
@@ -372,9 +410,7 @@
             break;
           }
         }
-        if (!added) {
-          lines.push([word]);
-        }
+        if (!added) lines.push([word]);
       }
 
       lines.forEach(line => line.sort((a, b) => a.x - b.x));
@@ -387,10 +423,9 @@
       const items = [];
       for (const line of lines) {
         for (const word of line) {
-          const yPos = word.baseY;
           items.push({
             str: word.str,
-            transform: [word.width, 0, 0, word.height, word.x, yPos],
+            transform: [word.width, 0, 0, word.height, word.x, word.baseY],
             width: word.width,
             height: word.height,
             fontName: '',
@@ -398,7 +433,6 @@
           });
         }
       }
-
       return { items };
     }
 
@@ -411,8 +445,7 @@
         const page = await pdfDoc.getPage(i);
         const viewport = page.getViewport({ scale: OCR_SCALE });
         const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        canvas.width = viewport.width; canvas.height = viewport.height;
         const ctx = canvas.getContext('2d');
         await page.render({ canvasContext: ctx, viewport }).promise;
 
@@ -618,18 +651,9 @@
     }
 
     function selectTool(type) {
-      if (isPostItMode) {
-        togglePostIt();
-      }
-
-      if (activeTool === type) {
-        activeTool = null;
-      } else {
-        activeTool = type;
-      }
-
+      if (isPostItMode) togglePostIt();
+      activeTool = (activeTool === type) ? null : type;
       updateToolButtonsUI();
-
       if (activeTool && currentSelectionData) {
         applyAnnotation(activeTool);
       }
@@ -641,23 +665,31 @@
         const btn = document.getElementById(`tool-${t}`);
         if (!btn) return;
         if (activeTool === t) {
-          btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-100', 'text-blue-700');
-          btn.classList.remove('bg-white', 'text-gray-600');
+          btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-100', 'text-blue-700', 'dark:bg-blue-900', 'dark:text-blue-200');
+          btn.classList.remove('bg-white', 'text-gray-600', 'dark:bg-gray-800', 'dark:text-gray-300');
         } else {
-          btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-100', 'text-blue-700');
-          btn.classList.add('bg-white', 'text-gray-600');
+          btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-100', 'text-blue-700', 'dark:bg-blue-900', 'dark:text-blue-200');
+          btn.classList.add('bg-white', 'text-gray-600', 'dark:bg-gray-800', 'dark:text-gray-300');
         }
       });
+    }
+
+    async function setZoomManual(val) {
+      let newScale = parseInt(val) / 100;
+      if (newScale < 0.1) newScale = 0.1;
+      if (newScale > 4.0) newScale = 4.0;
+      scale = newScale;
+      document.getElementById('zoomInput').value = Math.round(scale * 100);
+      await renderAllPages();
     }
 
     async function changeZoom(delta) {
       if (!pdfjsDoc) return;
       let newScale = scale + delta;
-      // LIMITE MÍNIMO DE ZOOM REDUZIDO PARA 10% (0.1)
       if (newScale < 0.1) newScale = 0.1; 
       if (newScale > 4.0) newScale = 4.0;
       scale = newScale;
-      document.getElementById('zoomLevel').innerText = Math.round(scale * 100) + '%';
+      document.getElementById('zoomInput').value = Math.round(scale * 100);
       await renderAllPages();
     }
 
@@ -670,13 +702,13 @@
       const btn = document.getElementById('btn-postit');
       const ws = document.getElementById('workspace');
       if (isPostItMode) {
-        btn.classList.add('ring-2', 'ring-yellow-400', 'bg-yellow-100');
-        btn.classList.remove('bg-white');
+        btn.classList.add('ring-2', 'ring-yellow-400', 'bg-yellow-100', 'dark:bg-yellow-900');
+        btn.classList.remove('bg-white', 'dark:bg-gray-800');
         ws.classList.add('postit-cursor');
         window.getSelection().removeAllRanges();
       } else {
-        btn.classList.remove('ring-2', 'ring-yellow-400', 'bg-yellow-100');
-        btn.classList.add('bg-white');
+        btn.classList.remove('ring-2', 'ring-yellow-400', 'bg-yellow-100', 'dark:bg-yellow-900');
+        btn.classList.add('bg-white', 'dark:bg-gray-800');
         ws.classList.remove('postit-cursor');
       }
     }
@@ -704,18 +736,12 @@
         togglePostIt();
         redrawAnnotations();
         updateSidebar();
-        setTimeout(() => {
-          const ta = document.getElementById(`textarea-${newId}`);
-          if (ta) ta.focus();
-        }, 50);
+        openFloatingBox(newId, e.pageX, e.pageY);
       }
     }
 
     function setColor(hex, rgb, vHex, vRgb, btnElement) {
-      activeColorHex = hex;
-      activeColorRGB = rgb;
-      activeVibrantHex = vHex;
-      activeVibrantRGB = vRgb;
+      activeColorHex = hex; activeColorRGB = rgb; activeVibrantHex = vHex; activeVibrantRGB = vRgb;
       document.querySelectorAll('.color-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-yellow-400', 'ring-green-400', 'ring-blue-400', 'ring-red-400');
       });
@@ -750,7 +776,9 @@
         currentSelectionData = {
           page: pageNum,
           rects: capturedRects,
-          text: selection.toString()
+          text: selection.toString(),
+          mouseX: e.pageX,
+          mouseY: e.pageY
         };
 
         if (activeTool) {
@@ -771,6 +799,44 @@
       }
     });
 
+    // Funções do bloco flutuante de comentários
+    function openFloatingBox(id, x, y) {
+      activeFloatingCommentId = id;
+      const box = document.getElementById('floatingCommentBox');
+      const ta = document.getElementById('floatTextarea');
+      const ann = annotations.find(a => a.id === id);
+
+      ta.value = ann.commentText || '';
+      
+      // Ajuste para não sair da tela
+      const maxW = window.innerWidth;
+      const maxH = window.innerHeight;
+      if (x + 300 > maxW) x = maxW - 310;
+      if (y + 200 > maxH) y = maxH - 210;
+
+      box.style.left = (x + 10) + 'px';
+      box.style.top = (y + 10) + 'px';
+      box.classList.remove('hidden');
+      setTimeout(() => ta.focus(), 50);
+    }
+
+    function saveFloatingComment() {
+      if(!activeFloatingCommentId) return;
+      const ann = annotations.find(a => a.id === activeFloatingCommentId);
+      if (ann) {
+        ann.commentText = document.getElementById('floatTextarea').value;
+        ann.isEditing = false;
+        redrawAnnotations();
+        updateSidebar();
+      }
+      closeFloatingBox();
+    }
+
+    function closeFloatingBox() {
+      document.getElementById('floatingCommentBox').classList.add('hidden');
+      activeFloatingCommentId = null;
+    }
+
     function applyAnnotation(type) {
       if (!currentSelectionData) return;
       if (type === 'copy') {
@@ -780,7 +846,10 @@
         currentSelectionData = null;
         return;
       }
+      
       const newId = Date.now();
+      const canComment = (type === 'comment' || type === 'postit');
+      
       annotations.push({
         id: newId,
         type: type,
@@ -792,26 +861,29 @@
         vibrantRGB: activeVibrantRGB,
         text: currentSelectionData.text,
         commentText: '',
-        isEditing: true
+        isEditing: canComment
       });
+      
       document.getElementById('selectionPopup').style.display = 'none';
       window.getSelection().removeAllRanges();
-      currentSelectionData = null;
+      
       redrawAnnotations();
       updateSidebar();
-      setTimeout(() => {
-        const ta = document.getElementById(`textarea-${newId}`);
-        if (ta) ta.focus();
-      }, 50);
+      
+      if (canComment) {
+        openFloatingBox(newId, currentSelectionData.mouseX, currentSelectionData.mouseY);
+      }
+      
+      currentSelectionData = null;
     }
 
     function scrollToSidebar(id) {
       const item = document.getElementById(`sidebar-item-${id}`);
-      if (item) {
+      if (item && !document.getElementById('sidebarPanel').classList.contains('hidden')) {
         item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        item.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50/30');
+        item.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50/30', 'dark:bg-blue-900/30');
         setTimeout(() => {
-          item.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/30');
+          item.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/30', 'dark:bg-blue-900/30');
         }, 1200);
       }
     }
@@ -846,7 +918,11 @@
           div.style.wordWrap = 'break-word';
           div.style.cursor = 'pointer';
           div.innerText = (ann.commentText && ann.commentText.trim() !== '') ? ann.commentText : '📝 Post-it (Clique para editar)';
-          div.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
+          div.onmousedown = (e) => { 
+            e.stopPropagation(); 
+            openFloatingBox(ann.id, e.pageX, e.pageY);
+            scrollToSidebar(ann.id); 
+          };
           foreignObject.appendChild(div);
           svg.appendChild(foreignObject);
           return;
@@ -856,7 +932,6 @@
         group.style.pointerEvents = 'auto';
         group.style.cursor = 'pointer';
         
-        // ETIQUETA-POPUP (HOVER-MOUSE)
         group.addEventListener('mouseenter', (e) => {
           if (ann.commentText && ann.commentText.trim() !== '') {
             tooltip.innerText = ann.commentText;
@@ -871,11 +946,15 @@
             tooltip.style.top = (e.clientY + 15) + 'px';
           }
         });
-        group.addEventListener('mouseleave', () => {
-          tooltip.style.display = 'none';
-        });
+        group.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
-        group.onmousedown = (e) => { e.stopPropagation(); scrollToSidebar(ann.id); };
+        group.onmousedown = (e) => { 
+          e.stopPropagation(); 
+          if (ann.type === 'comment' || ann.type === 'postit') {
+             openFloatingBox(ann.id, e.pageX, e.pageY);
+          }
+          scrollToSidebar(ann.id); 
+        };
 
         ann.rects.forEach(r => {
             const sx = r.x * scale;
@@ -889,10 +968,8 @@
               el.setAttribute('x', sx); el.setAttribute('y', sy);
               el.setAttribute('width', sw); el.setAttribute('height', sh);
               if (ann.type === 'comment') {
-                el.setAttribute('fill', '#fee2e2');
-                el.setAttribute('opacity', '0.6');
-                el.setAttribute('stroke', '#dc2626');
-                el.setAttribute('stroke-width', '1');
+                el.setAttribute('fill', '#bfdbfe'); // Azul bebê sólido
+                el.setAttribute('opacity', '0.5');
               } else {
                 el.setAttribute('fill', ann.colorHex);
                 el.setAttribute('opacity', '0.35');
@@ -954,53 +1031,61 @@
       }
       const indexMap = getCommentIndices();
       const reversedAnns = [...annotations].reverse();
+      
       reversedAnns.forEach(ann => {
         const item = document.createElement('div');
         item.id = `sidebar-item-${ann.id}`;
-        item.className = "bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm transition-all duration-300";
+        item.className = "bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 shadow-sm transition-all duration-300";
         let typeLabel = "Anotação";
         if (ann.type === 'postit') typeLabel = "Post-it";
         else if (ann.type === 'comment') typeLabel = "Comentário isolado";
         else if (ann.type === 'highlight') typeLabel = "Grifo";
         else if (ann.type === 'underline') typeLabel = "Sublinhado";
         else if (ann.type === 'strike') typeLabel = "Tachado";
-        const isOfficialComment = ann.type === 'postit' || (ann.commentText && ann.commentText.trim() !== '');
+        
+        const canComment = (ann.type === 'comment' || ann.type === 'postit');
+        const isOfficialComment = canComment && (ann.type === 'postit' || (ann.commentText && ann.commentText.trim() !== ''));
         const cmPrefix = isOfficialComment ? `<span class="text-blue-600 font-black mr-1">[CM${indexMap[ann.id]}]</span>` : '';
         const snippet = ann.text ? (ann.text.length > 50 ? ann.text.substring(0, 50) + "..." : ann.text) : null;
+        
         let html = `
           <div class="flex justify-between items-center mb-2">
-            <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">${cmPrefix}${typeLabel} <span class="font-normal normal-case text-gray-400 ml-1">(Pág. ${ann.page})</span></span>
+            <span class="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">${cmPrefix}${typeLabel} <span class="font-normal normal-case text-gray-400 dark:text-gray-500 ml-1">(Pág. ${ann.page})</span></span>
             <button onclick="removeAnnotation(${ann.id})" class="text-gray-400 hover:text-red-600 transition-colors" title="Excluir">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </button>
           </div>
         `;
+        
         if (snippet) {
-          html += `<div class="text-gray-500 text-xs border-l-2 border-gray-300 pl-2 italic mb-3">"${snippet}"</div>`;
+          html += `<div class="text-gray-500 dark:text-gray-400 text-xs border-l-2 border-gray-300 dark:border-gray-600 pl-2 italic mb-3">"${snippet}"</div>`;
         }
-        const maxLen = ann.type === 'postit' ? 280 : 6087;
-        if (ann.isEditing) {
-          html += `
-            <textarea id="textarea-${ann.id}" maxlength="${maxLen}" oninput="updateCharCount(${ann.id}, ${maxLen})" class="w-full text-sm border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-2 min-h-[80px]" placeholder="${ann.type === 'postit' ? 'Escreva no seu post-it...' : 'Adicione seu comentário (opcional)...'}">${ann.commentText}</textarea>
-            <div id="char-warning-${ann.id}" class="text-[10px] font-bold text-red-600 hidden text-right mb-2">Atenção: Limite de caracteres próximo.</div>
-            <button onclick="saveComment(${ann.id})" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold py-2 rounded-lg transition-colors">Salvar</button>
-          `;
-        } else {
-          const hasText = ann.commentText && ann.commentText.trim() !== '';
-          const displayTxt = hasText ? ann.commentText : '<i class="text-gray-400 text-xs">Sem comentário adicionado.</i>';
-          const bgClass = ann.type === 'postit' ? 'bg-yellow-100/50 border-yellow-200 font-serif' : 'bg-white border-gray-100';
-          html += `
-            <div class="text-sm text-gray-800 border p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap ${bgClass}">${displayTxt}</div>
-            <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
-          `;
+        
+        if (canComment) {
+          const maxLen = ann.type === 'postit' ? 280 : 6087;
+          if (ann.isEditing) {
+            html += `
+              <textarea id="textarea-${ann.id}" maxlength="${maxLen}" oninput="updateCharCount(${ann.id}, ${maxLen})" class="w-full text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none mb-2 min-h-[80px]" placeholder="${ann.type === 'postit' ? 'Escreva no seu post-it...' : 'Adicione seu comentário...'}">${ann.commentText}</textarea>
+              <div id="char-warning-${ann.id}" class="text-[10px] font-bold text-red-600 hidden text-right mb-2">Atenção: Limite de caracteres próximo.</div>
+              <button onclick="saveSidebarComment(${ann.id})" class="w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 text-xs font-bold py-2 rounded-lg transition-colors">Salvar</button>
+            `;
+          } else {
+            const hasText = ann.commentText && ann.commentText.trim() !== '';
+            const displayTxt = hasText ? ann.commentText : '<i class="text-gray-400 text-xs">Sem comentário adicionado.</i>';
+            const bgClass = ann.type === 'postit' ? 'bg-yellow-100/50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700 font-serif' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700';
+            html += `
+              <div class="text-sm text-gray-800 dark:text-gray-200 border p-3 rounded-lg mb-2 shadow-sm whitespace-pre-wrap ${bgClass}">${displayTxt}</div>
+              <button onclick="editComment(${ann.id})" class="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-bold py-2 rounded-lg transition-colors">Editar</button>
+            `;
+          }
         }
         item.innerHTML = html;
         container.appendChild(item);
-        if (ann.isEditing) updateCharCount(ann.id, maxLen);
+        if (canComment && ann.isEditing) updateCharCount(ann.id, maxLen);
       });
     }
 
-    window.saveComment = function (id) {
+    window.saveSidebarComment = function (id) {
       const ann = annotations.find(a => a.id === id);
       if (ann) {
         ann.commentText = document.getElementById(`textarea-${id}`).value;
@@ -1009,6 +1094,7 @@
         updateSidebar();
       }
     };
+    
     window.editComment = function (id) {
       const ann = annotations.find(a => a.id === id);
       if (ann) {
@@ -1016,9 +1102,11 @@
         updateSidebar();
       }
     };
+    
     window.removeAnnotation = function (id) {
       annotations = annotations.filter(a => a.id !== id);
-      document.getElementById('annotationTooltip').style.display = 'none'; // Esconde o tooltip ao excluir
+      document.getElementById('annotationTooltip').style.display = 'none';
+      if(activeFloatingCommentId === id) closeFloatingBox();
       redrawAnnotations();
       updateSidebar();
     };
@@ -1027,21 +1115,14 @@
       const rawLines = text.split('\n');
       let finalLines = [];
       rawLines.forEach(rawLine => {
-        if (rawLine.trim() === '') {
-          finalLines.push('');
-          return;
-        }
+        if (rawLine.trim() === '') { finalLines.push(''); return; }
         const words = rawLine.split(' ');
         let currentLine = words[0] || '';
         for (let i = 1; i < words.length; i++) {
           const word = words[i];
           const width = font.widthOfTextAtSize(currentLine + " " + word, fontSize);
-          if (width < maxWidth) {
-            currentLine += " " + word;
-          } else {
-            finalLines.push(currentLine);
-            currentLine = word;
-          }
+          if (width < maxWidth) { currentLine += " " + word; } 
+          else { finalLines.push(currentLine); currentLine = word; }
         }
         finalLines.push(currentLine);
       });
@@ -1066,11 +1147,15 @@
         const page = pages[pageIdx];
         const pageAnns = annotations.filter(a => a.page === pageIdx + 1);
         const { width: originalWidth, height: pageHeight } = page.getSize();
-        const annotationsWithComments = pageAnns.filter(a => a.type !== 'postit' && a.commentText && a.commentText.trim() !== '');
+        
+        // Apenas anotações com comentários (exclui grifos simples) ganham bloco lateral no PDF
+        const annotationsWithComments = pageAnns.filter(a => (a.type === 'comment' || a.type === 'postit') && a.commentText && a.commentText.trim() !== '');
+        
         if (annotationsWithComments.length > 0) {
           page.setWidth(originalWidth + EXTRA_MARGIN_WIDTH);
           page.drawRectangle({ x: originalWidth, y: 0, width: EXTRA_MARGIN_WIDTH, height: pageHeight, color: PDFLib.rgb(0.97, 0.97, 0.97) });
         }
+        
         pageAnns.sort((a, b) => a.rects[0].y - b.rects[0].y);
         let nextAvailableY = pageHeight - 20;
 
@@ -1090,7 +1175,7 @@
                 const vRGB = ann.vibrantRGB || [0.91, 0.70, 0.03];
 
                 if (ann.type === 'comment') {
-                  page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(1, 0.9, 0.9), borderColor: PDFLib.rgb(0.8, 0.2, 0.2), borderWidth: 1, opacity: 0.4, borderOpacity: 0.8 });
+                  page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(0.75, 0.86, 0.99), opacity: 0.5 });
                 } else if (ann.type === 'highlight') {
                   page.drawRectangle({ x: pdfX, y: pdfY - pdfH, width: pdfW, height: pdfH, color: PDFLib.rgb(rColor, gColor, bColor), opacity: 0.35 });
                 } else if (ann.type === 'underline') {
@@ -1107,7 +1192,7 @@
             basePdfY = totalY / ann.rects.length; 
           }
 
-          if (ann.type !== 'postit' && ann.commentText && ann.commentText.trim() !== '') {
+          if (ann.type === 'comment' && ann.commentText && ann.commentText.trim() !== '') {
             const boxPadding = 8;
             const boxMarginLeft = 20;
             const contentWidth = EXTRA_MARGIN_WIDTH - boxMarginLeft - (boxPadding * 2) - 10;
@@ -1139,13 +1224,8 @@
             const lines = splitTextToLines(textContent, postItWidth - 16, fontSerif, fontSize);
             const postItHeight = (lines.length * lineHeight) + 16;
             page.drawRectangle({
-              x: pdfX,
-              y: pdfY - postItHeight,
-              width: postItWidth,
-              height: postItHeight,
-              color: PDFLib.rgb(0.99, 0.94, 0.54),
-              borderColor: PDFLib.rgb(0.9, 0.8, 0.2),
-              borderWidth: 1
+              x: pdfX, y: pdfY - postItHeight, width: postItWidth, height: postItHeight,
+              color: PDFLib.rgb(0.99, 0.94, 0.54), borderColor: PDFLib.rgb(0.9, 0.8, 0.2), borderWidth: 1
             });
             let textY = pdfY - 14;
             lines.forEach(line => {

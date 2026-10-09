@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software in your academic workflow, please cite it as below."
+type: software
+title: "Peer-Reviewed PDF App (Revisar e Numerar PDF)"
+abstract: >-
+  A lightweight, open-source web tool designed specifically for academic peer review 
+  and student grading workflows. It runs 100% client-side in the browser, automating 
+  line numbering and exporting revised PDFs with an expanded side margin to visually 
+  anchor comments without overlapping the original text.
+authors:
+  - family-names: "Franco"
+    given-names: "Millena Miranda"
+    affiliation: "Universidade de São Paulo (USP)"
+repository-code: "https://github.com/mmillenaa/peer-reviewed-pdf"
+url: "https://mmillenaa.github.io/peer-reviewed-pdf/"
+license: CC-BY-NC-SA-4.0
+version: 1.0.0
+date-released: "2026-10-09"
+keywords:
+  - academic tools
+  - peer review
+  - pdf annotation
+  - client-side
+  - open-source
+  - educational technology
